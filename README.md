@@ -32,7 +32,7 @@ Prepričamo se, da imamo v PyCharmu aktiviran vtičnik za Docker. Vtičnik je ob
 ![step1](./README_images/Docker_step1.png)
 
 #### Nastavitev Dockerja kot oddaljeni interpreter
-V PyCharmu odpremo nastavitve za interpreter projekta, **Settings/Project:<ime-projekta>/Project Interpreter** in desno od polja za ime interpreterja kliknemo na ikono z zobnikom in izberemo **Add...**, da lahko dodamo nov interpreter.  
+V PyCharmu odpremo nastavitve za interpreter projekta, **Settings/Project:ime-projekta/Project Interpreter** in desno od polja za ime interpreterja kliknemo na ikono z zobnikom in izberemo **Add...**, da lahko dodamo nov interpreter.  
 V novem pojavnem oknu na levi strani na seznamu izberemo možnost **Docker** in v spustnem meniju pod možnostjo **Server:** izberemo Docker strežnik. Če srežnik ne obstaja, izberemo **New...** in ustvarimo nov strežnik z naslednjimi nastavitvami:
 
 ![step2](./README_images/Docker_step2.png)  
@@ -47,4 +47,4 @@ Izbiro potrdimo s klikom na gumb **OK**, kar naredi nov interpreter. Izbira inte
 
 Kliknemo na gumb **OK** in s tem tudi zaključimo nastavitev Python interpreterja za naš projekt.
 
-PyCharm bo sedaj datoteke poganjal znotraj "containerja" s sliko, ki smo jo izbrali za interpreter. Ob tem bo celoten direktorij projekta znotraj "containerja" avtomatsko montiran na mestu **/opt/project/**, kar pomeni, da se bodo vse generirane datoteke samodejno shranile tudi v lokalnem direktoriju na disku.
+PyCharm bo sedaj datoteke poganjal znotraj "containerja" z Docker sliko, ki smo jo izbrali za interpreter. Ob tem bo celoten direktorij projekta znotraj "containerja" avtomatsko montiran na mestu **/opt/project/**, kar pomeni, da se bodo vse generirane datoteke samodejno shranile tudi v lokalnem direktoriju na disku.
