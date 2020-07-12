@@ -19,7 +19,7 @@ models = {
 
 used_model = models["ssd"]
 # actual model for object detection
-model = mf.load_local_model(used_model)
+model = mf.load_tensorflow_model(used_model)
 
 # for differing results folder according to date
 today = datetime.today().strftime("%Y-%m-%d")
@@ -30,7 +30,7 @@ photos_dir = "Photos/Piran_en"
 results_dir = os.path.join("Results", today + " Piran_en", used_model)
 
 # list of the strings that is used to add correct label for each box
-PATH_TO_LABELS = "label_maps/mscoco_label_map.pbtxt"
+PATH_TO_LABELS = "Data/mscoco_label_map.pbtxt"
 category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
 
 
@@ -40,13 +40,13 @@ category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABE
 
 # recursively runs detection on photos in given directory
 # and saves new results into given results directory
-def run_detection(photos_path, results_path, score_threshold=0.5):
+def run_detection(photos_path, results_path, score_threshold=0.5, use_yolo=False, suppression_threshold=0.3):
     for item in os.listdir(photos_path):
         # run recursively in subdirectory
         if os.path.isdir(os.path.join(photos_path, item)):
             new_photos_path = os.path.join(photos_path, item)
             new_results_path = os.path.join(results_path, item)
-            run_detection(new_photos_path, new_results_path, score_threshold)
+            run_detection(new_photos_path, new_results_path, score_threshold, use_yolo, suppression_threshold)
         # check if file jpg/png
         elif item[-4:] == ".jpg" or item[-4:] == ".png":
             # get name of photo without file extension, for saving results files with identical name
@@ -75,7 +75,10 @@ def run_detection(photos_path, results_path, score_threshold=0.5):
 
             # execute object detection
             print("Current photo:", item_path)
-            data_dict = mf.run_image_inference(model, photo_np)
+            if not use_yolo:
+                data_dict = mf.run_image_inference(model, photo_np)
+            else:
+                data_dict = mf.detect_with_yolo(model, photo_np, score_threshold, suppression_threshold)
 
             # save photo with bounding boxes
             results_photo = mf.get_inference_image(item_path, data_dict, category_index,

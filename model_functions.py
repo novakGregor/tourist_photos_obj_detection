@@ -3,29 +3,14 @@ from object_detection.utils import ops as utils_ops
 from PIL import Image
 import tensorflow as tf
 import numpy as np
+import cv2 as cv
 import tarfile
-import pathlib
 import requests
 import os
 
 
-# loads model from URL, downloaded files are not saved on drive
-def load_model(model_name):
-    base_url = "http://download.tensorflow.org/models/object_detection/"
-    model_file = model_name + ".tar.gz"
-    model_dir = tf.keras.utils.get_file(fname=model_name, origin=base_url + model_file, untar=True)
-
-    model_dir = pathlib.Path(model_dir)/"saved_model"
-    print(str(model_dir))
-
-    model = tf.saved_model.load(str(model_dir))
-    model = model.signatures["serving_default"]
-
-    return model
-
-
-# loads model from locally saved files, downloads them if they not yet exist
-def load_local_model(model_name):
+# loads TensorFlow model from locally saved files, downloads them if they not yet exist
+def load_tensorflow_model(model_name):
     print("Proceeding to load local model...")
 
     # file strings
@@ -63,7 +48,43 @@ def load_local_model(model_name):
     return model
 
 
-# function which does actual detection
+# loads YOLO model with OpenCV, downloads YOLO weights file if it doesn't exist
+def load_yolo_model():
+    weights_url = "https://pjreddie.com/media/files/yolov3.weights"
+    download_dir = "downloaded_models/YOLOv3"
+    weights_file = download_dir + "/yolov3.weights"
+
+    cfg_file = "Data/YOLO/yolov3.cfg"
+
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+
+    print("Checking if file for YOLOv3 weights exists...")
+    if not os.path.exists(weights_file):
+        print("    Downloading weights file (this will take some time as website is slow)...")
+        r = requests.get(weights_url)
+        with open(weights_file, "wb") as f:
+            f.write(r.content)
+        print("    Done.")
+    else:
+        print("    Skipping file as it already exists")
+
+    # net, used as detection model
+    net = cv.dnn.readNetFromDarknet(cfg_file, weights_file)
+
+    return net
+
+
+# returns labels dict for YOLO, which can be used in the same way as category index for TensorFlow models
+def get_yolo_labels():
+    coco_names = "Data/YOLO/coco.names"
+    labels_list = open(coco_names).read().strip().split("\n")
+    category_index = {i: {"id": i, "name": labels_list[i]} for i in range(len(labels_list))}
+
+    return category_index
+
+
+# function which does actual detection with TensorFlow model
 def run_image_inference(model, image):
     image = np.asarray(image)
     # The input needs to be a tensor, convert it using `tf.convert_to_tensor`
@@ -91,6 +112,83 @@ def run_image_inference(model, image):
             output_dict["detection_masks"], output_dict["detection_boxes"], image.shape[0], image.shape[1])
         detection_masks_reframed = tf.cast(detection_masks_reframed > 0.5, tf.uint8)
         output_dict["detection_masks_reframed"] = detection_masks_reframed.numpy()
+
+    return output_dict
+
+
+# function that runs object detection with YOLO model
+# returns similar output dict as TensorFlow function, so it can be used with same visualization function
+def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_threshold=0.3):
+    # load our input image and grab its spatial dimensions
+    height, width = image.shape[0], image.shape[1]
+
+    # determine only the *output* layer names that we need from YOLO
+    layer_names = yolo_model.getLayerNames()
+    layer_names = [layer_names[i[0] - 1] for i in yolo_model.getUnconnectedOutLayers()]
+
+    # construct a blob from the input image and then perform a forward
+    # pass of the YOLO object detector, giving us our bounding boxes and
+    # associated probabilities
+    blob = cv.dnn.blobFromImage(image, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+    yolo_model.setInput(blob)
+    layer_outputs = yolo_model.forward(layer_names)
+
+    # min x, min y, max x, max y coordinates for each detected bounding box
+    # later used for visualization of bounding boxes
+    min_max_boxes = []
+    # min x, min y, width, height for each detected bounding box
+    # used for performing non maximum suppression
+    nms_boxes = []
+    confidence_scores = []
+    classes = []
+
+    # loop over each of the layer outputs
+    for output in layer_outputs:
+        # loop over each of the detections
+        for detection in output:
+            # extract the class ID and confidence score of the current object detection
+            results = detection[5:]
+            class_id = np.argmax(results)
+            confidence_score = results[class_id]
+
+            # perform score threshold check
+            if confidence_score < score_threshold:
+                continue
+
+            # scale bounding box coordinates to image size
+            # yolo returns center x y coordinates + width and height of bounding box
+            box = detection[0:4] * np.array([width, height, width, height])
+            (center_x, center_y, box_width, box_height) = box.astype("int")
+
+            # calculate min and max coordinates of a bounding box
+            min_x = int(round(center_x - (box_width / 2)))
+            max_x = int(round(center_x + (box_width / 2)))
+            min_y = int(round(center_y - (box_height / 2)))
+            max_y = int(round(center_y + (box_height / 2)))
+
+            # create list with min and max coordinates, divided with width and height
+            # such list can be used for visualisation in the same way as with tensorflow models
+            min_max_box = np.array([min_y / height, min_x / width, max_y / height, max_x / width])
+
+            # append results to lists
+            min_max_boxes.append(min_max_box)
+            nms_boxes.append([min_x, min_y, int(box_width), int(box_height)])
+            confidence_scores.append(float(confidence_score))
+            classes.append(class_id)
+
+    # apply non maximum suppression to suppress weak, overlapping bounding boxes
+    indexes = cv.dnn.NMSBoxes(nms_boxes, confidence_scores, score_threshold, suppression_threshold)
+    indexes = np.array(indexes)
+    output_dict = {"detection_boxes": [], "detection_classes": [], "detection_scores": []}
+    for i in indexes.flatten():
+        output_dict["detection_boxes"].append(min_max_boxes[i])
+        output_dict["detection_classes"].append(classes[i])
+        output_dict["detection_scores"].append(confidence_scores[i])
+
+    # convert lists to numpy arrays so they can be used with TensorFlow visualization function
+    output_dict["detection_boxes"] = np.array(output_dict["detection_boxes"])
+    output_dict["detection_classes"] = np.array(output_dict["detection_classes"])
+    output_dict["detection_scores"] = np.array(output_dict["detection_scores"])
 
     return output_dict
 
