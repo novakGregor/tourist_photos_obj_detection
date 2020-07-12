@@ -12,7 +12,7 @@ Celoten projekt se razvija v programskem jeziku Python. Za razvoj in poganjanje 
 
 ### Generiranje Docker slike
 Docker slika, ki jo uporabljamo v okviru projekta, se lahko zgradi s priloženo datoteko Dockerfile, pred tem pa se moramo seveda prepričati, da je na našem računalniku Docker uspešno nameščen.  
-Odpremo terminal in se prepričamo, da je trenutni delovni direktorij nastavljen na domač direktorij repozitorija, ki vsebuje priloženo datoteko Dockerfile.  
+Odpremo terminal in se prepričamo, da je trenutni delovni direktorij nastavljen na mapo "Docker" v domačem direktoriju repozitorija, ki vsebuje priloženo datoteko Dockerfile.  
 Da ustvarimo novo Docker sliko, v tem direktoriju poženemo naslednji ukaz:
 
 ```
