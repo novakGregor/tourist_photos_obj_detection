@@ -198,7 +198,8 @@ def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_thresho
 def get_inference_image(image_path, output_dict, category_index, line_thickness=1, score_threshold=.5):
     # the array based representation of the image will be used later in order to prepare the
     # result image with boxes and labels on it.
-    image_np = np.array(Image.open(image_path))
+    with Image.open(image_path) as opened_image:
+        image_np = np.array(opened_image)
     # Visualization of the results of a detection.
     vis_util.visualize_boxes_and_labels_on_image_array(
         image_np,
