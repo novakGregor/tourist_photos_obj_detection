@@ -1,5 +1,6 @@
 from collections import defaultdict
 from PIL import Image
+import matplotlib.pyplot as plt
 import model_functions as mf
 import numpy as np
 import json
@@ -283,3 +284,77 @@ def generate_json_by_folder(full_dict, category_index, score_threshold=0.5):
     for dir_path in dir_dict:
         generate_json(dir_dict[dir_path], category_index, dir_path, score_threshold,
                       json_filename="dir_photos_data.json")
+
+
+# ----------------------------
+# functions for generating bar charts for confidence score thresholds
+# ----------------------------
+
+# generates lists for bar charts for confidence score thresholds
+# there are 10 thresholds - 0%-90%, incremented by 10%
+def score_charts(full_dict):
+
+    # 2D list (matrix) for number of detected objects by different confidence score thresholds
+    # 1st index: score threshold --> item at nth index == list for bar chart at threshold >= 10n
+    # 2nd index: number of detected objects -> item in row at nth index == number of photos with n detected objects
+    all_charts = np.zeros(shape=(10, 11)).astype(int)
+
+    # for each photo on which detection was executed
+    for photo in full_dict:
+        objects_dict = full_dict[photo][1]  # data dict for current photo
+        num_objects = len(objects_dict["detection_scores"])  # number of detected objects
+
+        # list of numbers of detected objects at specific threshold, at the start filled with num detected objects
+        objects_by_thresholds = np.array([num_objects] * 10)
+
+        # for each detected objects
+        for score in objects_dict["detection_scores"]:
+            # index for first threshold, that is bigger than threshold for current object
+            # example: score == 0.15 --> threshold index == int(score * 10) == 1, next threshold index == 2
+            next_threshold_index = int(score * 10) + 1
+
+            # do it only if current object doesn't already fall into the last (biggest) threshold
+            if next_threshold_index < 9:
+                # subtract current object from all thresholds that are bigger than actual threshold for its score
+                difference = np.ones(len(objects_by_thresholds) - next_threshold_index).astype(int)
+                objects_by_thresholds[next_threshold_index:] -= difference
+
+        # increment appropriate values in lists for bar charts
+        for i in range(len(objects_by_thresholds)):
+            detected_objects = objects_by_thresholds[i]
+            if detected_objects > 10:
+                # that means number of detected objects == 10+
+                detected_objects = 10
+            all_charts[i][detected_objects] += 1
+
+    return all_charts
+
+
+# saves all 10 score threshold charts
+def save_score_charts(full_dict, results_path):
+    chart_list = score_charts(full_dict)
+    base_path = os.path.join(results_path, "confidence_threshold_charts")
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+    for i in range(len(chart_list)):
+        y_values = chart_list[i]
+        x_values = [str(x) for x in range(len(y_values))]
+        x_values[-1] = "10+"
+        score_threshold = i * 10
+        filename = "at least {} %.png".format(score_threshold)
+        file_path = os.path.join(base_path, filename)
+        title = "Detected objects with confidence score >= {} %".format(score_threshold)
+        plt.bar(x_values, y_values)
+        plt.xticks(x_values)
+        plt.title(title)
+        plt.xlabel("Number of detected objects")
+        plt.ylabel("Number of photographs")
+        plt.savefig(file_path)
+        plt.close()
+
+
+# saves individual score charts for each subdirectory
+def save_score_charts_by_folder(full_dict):
+    dir_dict = dict_by_results_dir(full_dict)
+    for dir_path in dir_dict:
+        save_score_charts(dir_dict[dir_path], dir_path)

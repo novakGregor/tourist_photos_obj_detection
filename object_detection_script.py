@@ -56,3 +56,18 @@ print("---DONE---")
 elapsed_time_files = end2 - start2
 elapsed_time_files_min = elapsed_time_files / 60
 print("\nTime elapsed: {:.4f} s ({:.4f} m)".format(elapsed_time_files, elapsed_time_files_min))
+
+print("\n\n---GENERATING BAR CHARTS FOR CONFIDENCE SCORE THRESHOLDS---")
+start3 = time.time()
+df.save_score_charts(data, results_dir)  # global charts (for root photos dir)
+df.save_score_charts_by_folder(data)  # local charts (for each subdir)
+end3 = time.time()
+print("---DONE---")
+elapsed_time_charts = end3 - start3
+elapsed_time_charts_min = elapsed_time_charts / 60
+print("\nTime elapsed: {:.4f} s ({:.4f} m)".format(elapsed_time_charts, elapsed_time_charts_min))
+
+time_total = end3 - start1
+time_total_min = time_total / 60
+
+print("\nTotal time elapsed: {:.4f} s ({:.4f} m)".format(time_total, time_total_min))
