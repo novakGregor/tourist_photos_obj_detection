@@ -118,7 +118,7 @@ def run_image_inference(model, image):
 
 # function that runs object detection with YOLO model
 # returns similar output dict as TensorFlow function, so it can be used with same visualization function
-def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_threshold=0.3):
+def detect_with_yolo(yolo_model, image, suppression_threshold=0.3):
     # load our input image and grab its spatial dimensions
     height, width = image.shape[0], image.shape[1]
 
@@ -151,10 +151,6 @@ def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_thresho
             class_id = np.argmax(results)
             confidence_score = results[class_id]
 
-            # perform score threshold check
-            if confidence_score < score_threshold:
-                continue
-
             # scale bounding box coordinates to image size
             # yolo returns center x y coordinates + width and height of bounding box
             box = detection[0:4] * np.array([width, height, width, height])
@@ -177,7 +173,7 @@ def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_thresho
             classes.append(class_id)
 
     # apply non maximum suppression to suppress weak, overlapping bounding boxes
-    indexes = cv.dnn.NMSBoxes(nms_boxes, confidence_scores, score_threshold, suppression_threshold)
+    indexes = cv.dnn.NMSBoxes(nms_boxes, confidence_scores, 0, suppression_threshold)
     indexes = np.array(indexes)
     output_dict = {"detection_boxes": [], "detection_classes": [], "detection_scores": []}
     for i in indexes.flatten():
@@ -195,7 +191,7 @@ def detect_with_yolo(yolo_model, image, score_threshold=0.5, suppression_thresho
 
 # visually applies bounding boxes and other detected data on the photo
 # wrapper function for object_detection's visualize_boxes_and_labels_on_image_array() function
-def get_inference_image(image_path, output_dict, category_index, line_thickness=1, score_threshold=.5):
+def get_inference_image(image_path, output_dict, category_index, line_thickness=1, score_threshold=0.5):
     # the array based representation of the image will be used later in order to prepare the
     # result image with boxes and labels on it.
     with Image.open(image_path) as opened_image:
@@ -237,39 +233,59 @@ def calculate_box_dimensions(box, x, y):
     return box_dict
 
 
-# draws filled box on given numpy image array and simultaneously updates pixel statistics
-def draw_box(np_image, box_dimensions, stats_list):
+# increments every element in numpy 2D array on places where bounding box rectangle should be located - "draws" the box
+def draw_box(np_array, box_dimensions):
     # round dimensions and convert to int
     min_x = int(round(box_dimensions["min x"]))
     max_x = int(round(box_dimensions["max x"]))
     min_y = int(round(box_dimensions["min y"]))
     max_y = int(round(box_dimensions["max y"]))
     # check if out of bounds
-    img_x = np_image.shape[1]
-    img_y = np_image.shape[0]
-    if max_x >= img_x:
-        max_x = img_x - 1
-    if max_y >= img_y:
-        max_y = img_y - 1
+    img_y, img_x = np_array.shape
+    if max_x > img_x:
+        max_x = img_x
+    if max_y > img_y:
+        max_y = img_y
+    if min_x < 0:
+        min_x = 0
+    if min_y < 0:
+        min_y = 0
 
-    # draw rectangle
-    for i in range(min_y, max_y):
-        for j in range(min_x, max_x):
-            # get old and new color values
-            old_color = np_image[i][j][0]
-            new_color = old_color - 25
-            # indexes for accessing values in stats_list
-            # need to be rounded because most values will not be dividable by 25
-            old_index = int(round((255 - old_color) / 25))
-            new_index = int(round((255 - new_color) / 25))
-            # fix stats values
-            # final value on index 0 will be equal to negative value of all pixels that don't remain white
-            stats_list[old_index] -= 1
-            stats_list[new_index] += 1
+    # calculate used width and height from rounded values
+    width = max_x - min_x
+    height = max_y - min_y
 
-            if new_color <= 5:  # 255 - (25 * 10) = 5 -> almost black
-                new_color = 0  # 10+ objects
-            np_image[i][j] = [new_color, new_color, new_color]
+    # increment array elements where bounding box is located
+    box = np.ones((height, width))
+    np_array[min_y:max_y, min_x:max_x] += box
+
+
+# counts number occurrences in range 0-10+
+def calculate_saturation_stats(image_array):
+    stats_list = []
+
+    # for values 0-9
+    for i in range(10):
+        num_values = np.count_nonzero(image_array == i)
+        stats_list.append(num_values)
+
+    # last element in list indicates 10+ objects, so condition must be >= 10
+    num_values = np.count_nonzero(image_array >= 10)
+    stats_list.append(num_values)
+
+    return stats_list
+
+
+# normalizes incremented values from draw_box() function into range 0-255
+def normalize_grayscale(np_array):
+    # multiply every value with 255/10
+    np_array = (np_array * 25.5).astype(int)
+    # set upper threshold
+    np_array[np_array > 255] = 255
+    # reverse colors (more objects == darker area)
+    np_array = (255 - np_array).astype(np.uint8)
+
+    return np_array
 
 
 # formats stats list into string for saving into text file
@@ -280,9 +296,8 @@ def format_saturation_stats(stats_list, image_name, img_width, img_height):
     # initial stats string
     stats_str = "SATURATION STATISTICS FOR " + image_name
 
-    # first value in list can be negative number
-    # because value for 0 objects is subtracted for each pixel with different color
-    occupied_image = abs(percentages[0])
+    # full image occupation percentage is equal to sum of all values with value for 0 objects excluded
+    occupied_image = sum(percentages[1:])
     # add row for image occupation percentage
     stats_str = "{}\nPercentage of image occupied: {} %".format(stats_str, round(occupied_image, 4))
 

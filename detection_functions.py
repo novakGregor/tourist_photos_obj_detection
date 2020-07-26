@@ -12,10 +12,10 @@ import os
 # ----------------------------
 
 # draws all detected objects' bounding boxes for one photo
-def draw_all_boxes(saturation_map, datalist, stats_list):
+def draw_all_boxes(saturation_map, datalist):
     for object_data in datalist:
         object_dims = object_data["Bounding box"]
-        mf.draw_box(saturation_map, object_dims, stats_list)
+        mf.draw_box(saturation_map, object_dims)
 
 
 # rewrites object detection dictionary so it's separated by directories
@@ -67,7 +67,7 @@ def build_json_dict(data_dict, category_index, photo, width, height, score_thres
 
 # recursively runs detection on photos in given directory
 # and saves new results into given results directory
-def run_detection(model, category_index, photos_path, results_path,
+def run_detection(model, model_name, category_index, photos_path, results_path,
                   score_threshold=0.5, use_yolo=False, suppression_threshold=0.3):
     full_dict = {}
     for item in os.listdir(photos_path):
@@ -75,12 +75,14 @@ def run_detection(model, category_index, photos_path, results_path,
         if os.path.isdir(os.path.join(photos_path, item)):
             new_photos_path = os.path.join(photos_path, item)
             new_results_path = os.path.join(results_path, item)
-            full_dict = dict(full_dict, **run_detection(model, category_index, new_photos_path, new_results_path,
-                                                        score_threshold, use_yolo, suppression_threshold))
+            full_dict = dict(full_dict, **run_detection(model, model_name, category_index, new_photos_path,
+                                                        new_results_path, score_threshold, use_yolo,
+                                                        suppression_threshold))
         # check if file jpg/png
         elif item[-4:] == ".jpg" or item[-4:] == ".png":
             # get name of photo without file extension, for saving results files with identical name
-            filename = item[:-4]
+            # also add model name
+            filename = "{} - {}".format(item[:-4], model_name)
 
             # open photo as numpy array
             item_path = os.path.join(photos_path, item)
@@ -95,15 +97,17 @@ def run_detection(model, category_index, photos_path, results_path,
             if not os.path.exists(photos_results_path):
                 os.makedirs(photos_results_path)
 
+            # add original file extension to result photo filename
+            result_filename = filename + item[-4:]
             # where result photo will be saved
-            result_photo_path = os.path.join(photos_results_path, item)
+            result_photo_path = os.path.join(photos_results_path, result_filename)
 
             # execute object detection
             print("Current photo:", item_path)
             if not use_yolo:
                 data_dict = mf.run_image_inference(model, photo_np)
             else:
-                data_dict = mf.detect_with_yolo(model, photo_np, score_threshold, suppression_threshold)
+                data_dict = mf.detect_with_yolo(model, photo_np, suppression_threshold)
 
             # save photo with bounding boxes
             results_photo = mf.get_inference_image(item_path, data_dict, category_index,
@@ -153,20 +157,22 @@ def generate_data_files(full_dict, category_index, score_threshold=0.5, generate
             if not os.path.exists(saturation_maps_path):
                 os.makedirs(saturation_maps_path)
             # image array for saturation map
-            saturation_map = np.zeros(shape=(photo_y, photo_x, 3)).astype(np.uint8)
-            saturation_map.fill(255)  # blank white photo
-            # list for counting pixel colors occurrences
-            stats_list = [0] * 11  # 0-10+ objects
-
+            saturation_map = np.zeros((photo_y, photo_x))
             # save saturation map
             print("    Generating saturation map...")
             # draw boxes on saturation map
             objects_list = photo_info["Objects"]
-            draw_all_boxes(saturation_map, objects_list, stats_list)
+            draw_all_boxes(saturation_map, objects_list)
+
+            # list for image occupation statistics
+            stats_list = mf.calculate_saturation_stats(saturation_map)
+
+            # normalize array to have values from 0 to 255
+            saturation_map = mf.normalize_grayscale(saturation_map)
             # saturation map must be saved as png to avoid JPEG color compression
             map_file = os.path.join(saturation_maps_path, filename + ".png")  # same name as original photo
             print("    Saving saturation map into", map_file)
-            sat_img = Image.fromarray(saturation_map)
+            sat_img = Image.fromarray(saturation_map, mode="L")
             sat_img.save(map_file)
 
             # save saturation stats file
@@ -185,7 +191,10 @@ def generate_data_files(full_dict, category_index, score_threshold=0.5, generate
 # ----------------------------
 
 # generates combined CSV file with all detection data for all photos in detection data dictionary
-def generate_csv(full_dict, category_index, results_path, score_threshold=0.5, csv_filename="all_photos_data.csv"):
+def generate_csv(full_dict, category_index, model_name, results_path,
+                 score_threshold=0.5, csv_filename="all_photos_data"):
+    # add model name to filename
+    csv_filename = "{} - {}.csv".format(csv_filename, model_name)
     # path where CSV file will be saved
     csv_path = os.path.join(results_path, csv_filename)
     # list with all rows for CSV file
@@ -249,10 +258,11 @@ def generate_csv(full_dict, category_index, results_path, score_threshold=0.5, c
 
 
 # generates corresponding combined CSV file for each directory with photos
-def generate_csv_by_folder(full_dict, category_index, score_threshold=0.5):
+def generate_csv_by_folder(full_dict, category_index, model_name, score_threshold=0.5):
     dir_dict = dict_by_results_dir(full_dict)
     for dir_path in dir_dict:
-        generate_csv(dir_dict[dir_path], category_index, dir_path, score_threshold, csv_filename="dir_photos_data.csv")
+        generate_csv(dir_dict[dir_path], category_index, model_name, dir_path, score_threshold,
+                     csv_filename="dir_photos_data")
 
 
 # ----------------------------
@@ -260,7 +270,11 @@ def generate_csv_by_folder(full_dict, category_index, score_threshold=0.5):
 # ----------------------------
 
 # generates combined JSON file with all detection data for all photos in detection data dictionary
-def generate_json(full_dict, category_index, results_path, score_threshold=0.5, json_filename="all_photos_data.json"):
+def generate_json(full_dict, category_index, model_name, results_path, score_threshold=0.5,
+                  json_filename="all_photos_data"):
+    # add model name to filename
+    json_filename = "{} - {}.json".format(json_filename, model_name)
+
     # path for JSON file
     json_path = os.path.join(results_path, json_filename)
     # list with JSON dictionaries for each photo
@@ -279,11 +293,11 @@ def generate_json(full_dict, category_index, results_path, score_threshold=0.5, 
 
 
 # generates corresponding combined JSON file for each directory with photos
-def generate_json_by_folder(full_dict, category_index, score_threshold=0.5):
+def generate_json_by_folder(full_dict, category_index, model_name, score_threshold=0.5):
     dir_dict = dict_by_results_dir(full_dict)
     for dir_path in dir_dict:
-        generate_json(dir_dict[dir_path], category_index, dir_path, score_threshold,
-                      json_filename="dir_photos_data.json")
+        generate_json(dir_dict[dir_path], category_index, model_name, dir_path, score_threshold,
+                      json_filename="dir_photos_data")
 
 
 # ----------------------------
@@ -331,7 +345,7 @@ def score_charts(full_dict):
 
 
 # saves all 10 score threshold charts
-def save_score_charts(full_dict, results_path):
+def save_score_charts(full_dict, model_name, results_path):
     chart_list = score_charts(full_dict)
     base_path = os.path.join(results_path, "confidence_threshold_charts")
     if not os.path.exists(base_path):
@@ -341,7 +355,7 @@ def save_score_charts(full_dict, results_path):
         x_values = [str(x) for x in range(len(y_values))]
         x_values[-1] = "10+"
         score_threshold = i * 10
-        filename = "at least {} %.png".format(score_threshold)
+        filename = "at least {} % - {}.png".format(score_threshold, model_name)
         file_path = os.path.join(base_path, filename)
         title = "Detected objects with confidence score >= {} %".format(score_threshold)
         plt.bar(x_values, y_values)
@@ -354,7 +368,7 @@ def save_score_charts(full_dict, results_path):
 
 
 # saves individual score charts for each subdirectory
-def save_score_charts_by_folder(full_dict):
+def save_score_charts_by_folder(full_dict, model_name):
     dir_dict = dict_by_results_dir(full_dict)
     for dir_path in dir_dict:
-        save_score_charts(dir_dict[dir_path], dir_path)
+        save_score_charts(dir_dict[dir_path], model_name, dir_path)
