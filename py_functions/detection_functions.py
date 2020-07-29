@@ -1,7 +1,7 @@
 from collections import defaultdict
 from PIL import Image
 import matplotlib.pyplot as plt
-import model_functions as mf
+import py_functions.model_functions as mf
 import numpy as np
 import json
 import os

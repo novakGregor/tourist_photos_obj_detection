@@ -1,7 +1,7 @@
 from object_detection.utils import label_map_util
 from datetime import datetime
-import model_functions as mf
-import detection_functions as df
+import py_functions.model_functions as mf
+import py_functions.detection_functions as df
 import time
 import os
 
