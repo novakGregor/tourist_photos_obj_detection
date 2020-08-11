@@ -1,7 +1,7 @@
-from object_detection.utils import label_map_util
-from datetime import datetime
 import py_functions.model_functions as mf
 import py_functions.detection_functions as df
+from object_detection.utils import label_map_util
+from datetime import datetime
 import time
 import os
 
@@ -25,8 +25,9 @@ PATH_TO_LABELS = "Data/mscoco_label_map.pbtxt"
 score_threshold = 0.5
 
 # name string for used model
-used_model = models["ssd"]
-
+used_model = models["f_rcnn"]
+# bool for non maximum suppression application in case of TensorFlow model
+tf_apply_nms = True
 # actual model for object detection
 if used_model != "YOLOv3":
     model = mf.load_tensorflow_model(used_model)
@@ -59,7 +60,7 @@ results_dir = "Results/{} {}/{}".format(today, photos_dir, used_model)
 
 print("---STARTING OBJECT DETECTION---")
 start1 = time.time()
-data = df.run_detection(model, used_model, category_index, photos_dir_path, results_dir,
+data = df.run_detection(model, used_model, category_index, photos_dir_path, results_dir, apply_nms=tf_apply_nms,
                         use_yolo=use_yolo, score_threshold=score_threshold)
 end1 = time.time()
 print("---DONE---")
@@ -69,11 +70,11 @@ print("\nTime elapsed: {:.4f} s ({:.4f} m)".format(elapsed_time_detection, elaps
 
 print("\n\n---GENERATING ADDITIONAL DATA FILES---")
 start2 = time.time()
-df.generate_data_files(data, category_index, generate_saturation_stats=True)
-df.generate_csv(data, category_index, used_model, results_dir)  # full csv
-df.generate_csv_by_folder(data, category_index, used_model)  # csv files in each subdir
-df.generate_json(data, category_index, used_model, results_dir)  # full json
-df.generate_json_by_folder(data, category_index, used_model)  # json files in each subdir
+df.generate_data_files(data, category_index, score_threshold=score_threshold, generate_saturation_stats=True)
+df.generate_csv(data, category_index, used_model, results_dir, score_thresh=score_threshold)  # full csv
+df.generate_csv_by_folder(data, category_index, used_model, score_thresh=score_threshold)  # csv files in each subdir
+df.generate_json(data, category_index, used_model, results_dir, score_thresh=score_threshold)  # full json
+df.generate_json_by_folder(data, category_index, used_model, score_thresh=score_threshold)  # json files in each subdir
 end2 = time.time()
 print("---DONE---")
 elapsed_time_files = end2 - start2

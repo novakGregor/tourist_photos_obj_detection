@@ -1,14 +1,15 @@
 FROM ubuntu:20.04
 
 # set up python
-RUN apt-get update && \
-    apt-get -y upgrade && \
+RUN apt-get clean && \
+    apt-get update && \
     apt-get install -y python3 python3-pip && \
     python3 -m pip --no-cache-dir install --upgrade pip setuptools && \
     ln -s $(which python3) /usr/local/bin/python
 
-# install object detection api dependencies
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y protobuf-compiler python-pil python-lxml python-tk && \
+# install object detection api dependencies and other python modules/libraries
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y protobuf-compiler python-pil python-lxml python-tk \
+    graphviz libgraphviz-dev pkg-config && \
     python3 -m pip install --no-cache-dir tensorflow \
     Cython \
     contextlib2 \
@@ -16,7 +17,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y protobuf-compiler python-p
     lxml \
     jupyter \
     matplotlib \
-    tf_slim
+    tf_slim \
+    networkx \
+    pygraphviz
 
 # install opencv, used for YOLO algorithm
 RUN apt-get install -y python3-opencv

@@ -68,7 +68,7 @@ def build_json_dict(data_dict, category_index, photo, width, height, score_thres
 # recursively runs detection on photos in given directory
 # and saves new results into given results directory
 def run_detection(model, model_name, category_index, photos_path, results_path,
-                  score_threshold=0.5, use_yolo=False, suppression_threshold=0.3):
+                  score_threshold=0.5, apply_nms=False, use_yolo=False, suppression_threshold=0.3):
     full_dict = {}
     for item in os.listdir(photos_path):
         # run recursively in subdirectory
@@ -76,7 +76,7 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
             new_photos_path = os.path.join(photos_path, item)
             new_results_path = os.path.join(results_path, item)
             full_dict = dict(full_dict, **run_detection(model, model_name, category_index, new_photos_path,
-                                                        new_results_path, score_threshold, use_yolo,
+                                                        new_results_path, score_threshold, apply_nms, use_yolo,
                                                         suppression_threshold))
         # check if file jpg/png
         elif item[-4:] == ".jpg" or item[-4:] == ".png":
@@ -105,7 +105,8 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
             # execute object detection
             print("Current photo:", item_path)
             if not use_yolo:
-                data_dict = mf.run_image_inference(model, photo_np)
+                data_dict = mf.run_image_inference(model, photo_np,
+                                                   apply_nms=apply_nms, nms_threshold=suppression_threshold)
             else:
                 data_dict = mf.detect_with_yolo(model, photo_np, suppression_threshold)
 
@@ -192,7 +193,7 @@ def generate_data_files(full_dict, category_index, score_threshold=0.5, generate
 
 # generates combined CSV file with all detection data for all photos in detection data dictionary
 def generate_csv(full_dict, category_index, model_name, results_path,
-                 score_threshold=0.5, csv_filename="all_photos_data"):
+                 score_thresh=0.5, csv_filename="all_photos_data"):
     # add model name to filename
     csv_filename = "{} - {}.csv".format(csv_filename, model_name)
     # path where CSV file will be saved
@@ -215,7 +216,7 @@ def generate_csv(full_dict, category_index, model_name, results_path,
                                                                              photo_x, photo_y)
 
             # skip if confidence score too low
-            if object_score < score_threshold:
+            if object_score < score_thresh:
                 continue
             num_objects += 1
 
@@ -258,10 +259,10 @@ def generate_csv(full_dict, category_index, model_name, results_path,
 
 
 # generates corresponding combined CSV file for each directory with photos
-def generate_csv_by_folder(full_dict, category_index, model_name, score_threshold=0.5):
+def generate_csv_by_folder(full_dict, category_index, model_name, score_thresh=0.5):
     dir_dict = dict_by_results_dir(full_dict)
     for dir_path in dir_dict:
-        generate_csv(dir_dict[dir_path], category_index, model_name, dir_path, score_threshold,
+        generate_csv(dir_dict[dir_path], category_index, model_name, dir_path, score_thresh,
                      csv_filename="dir_photos_data")
 
 
@@ -270,7 +271,7 @@ def generate_csv_by_folder(full_dict, category_index, model_name, score_threshol
 # ----------------------------
 
 # generates combined JSON file with all detection data for all photos in detection data dictionary
-def generate_json(full_dict, category_index, model_name, results_path, score_threshold=0.5,
+def generate_json(full_dict, category_index, model_name, results_path, score_thresh=0.5,
                   json_filename="all_photos_data"):
     # add model name to filename
     json_filename = "{} - {}.json".format(json_filename, model_name)
@@ -285,7 +286,7 @@ def generate_json(full_dict, category_index, model_name, results_path, score_thr
         photo_x, photo_y = full_dict[photo][0][2:]
         data_dict = full_dict[photo][1]
         # get list with objects' data and append it into full list
-        photo_info = build_json_dict(data_dict, category_index, photo, photo_x, photo_y, score_threshold)
+        photo_info = build_json_dict(data_dict, category_index, photo, photo_x, photo_y, score_thresh)
         photos_data.append(photo_info)
     # write list with all dictionaries into JSON file
     with open(json_path, "w+") as f:
@@ -293,10 +294,10 @@ def generate_json(full_dict, category_index, model_name, results_path, score_thr
 
 
 # generates corresponding combined JSON file for each directory with photos
-def generate_json_by_folder(full_dict, category_index, model_name, score_threshold=0.5):
+def generate_json_by_folder(full_dict, category_index, model_name, score_thresh=0.5):
     dir_dict = dict_by_results_dir(full_dict)
     for dir_path in dir_dict:
-        generate_json(dir_dict[dir_path], category_index, model_name, dir_path, score_threshold,
+        generate_json(dir_dict[dir_path], category_index, model_name, dir_path, score_thresh,
                       json_filename="dir_photos_data")
 
 

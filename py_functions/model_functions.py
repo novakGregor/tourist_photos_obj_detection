@@ -1,9 +1,9 @@
+import cv2 as cv
 from object_detection.utils import visualization_utils as vis_util
 from object_detection.utils import ops as utils_ops
 from PIL import Image
 import tensorflow as tf
 import numpy as np
-import cv2 as cv
 import tarfile
 import requests
 import os
@@ -84,8 +84,8 @@ def get_yolo_labels():
     return category_index
 
 
-# function which does actual detection with TensorFlow model
-def run_image_inference(model, image):
+# function for object detection with TensorFlow model
+def run_image_inference(model, image, apply_nms=False, nms_threshold=0.3):
     image = np.asarray(image)
     # The input needs to be a tensor, convert it using `tf.convert_to_tensor`
     input_tensor = tf.convert_to_tensor(image)
@@ -104,6 +104,15 @@ def run_image_inference(model, image):
 
     # detection_classes should be ints.
     output_dict["detection_classes"] = output_dict["detection_classes"].astype(np.int64)
+
+    # apply non maximum suppression if specified
+    if apply_nms:
+        boxes = output_dict["detection_boxes"]
+        scores = output_dict["detection_scores"]
+        nms_indices = tf.image.non_max_suppression(boxes, scores, len(boxes), iou_threshold=nms_threshold).numpy()
+        output_dict["detection_boxes"] = output_dict["detection_boxes"][nms_indices]
+        output_dict["detection_scores"] = output_dict["detection_scores"][nms_indices]
+        output_dict["detection_classes"] = output_dict["detection_classes"][nms_indices]
 
     # Handle models with masks:
     if "detection_masks" in output_dict:
@@ -231,6 +240,11 @@ def calculate_box_dimensions(box, x, y):
         "max y": y_max1
     }
     return box_dict
+
+
+def absolute_bounding_box(box, x, y):
+    y_min, x_min, y_max, x_max = box
+    return [y_min * y, x_min * x, y_max * y, x_max * x]
 
 
 # increments every element in numpy 2D array on places where bounding box rectangle should be located - "draws" the box
