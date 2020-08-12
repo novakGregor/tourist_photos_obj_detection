@@ -228,42 +228,102 @@ def get_heat_map(pairs, names1, names2):
 
 
 # plots heat map matrix, retrieved with get_heat_map() function and saves it into image file
-def save_heat_map(heat_map, model1, model2, names1, names2, file_path):
-    plt.figure()
-    plt.imshow(heat_map)
-    ax = plt.gca()
+def save_heat_map(heat_map, object_counts, model1, model2, names1, names2, file_path):
+
+    # retrieve dimensions of heat map
+    map_height, map_width = heat_map.shape
+
+    # values for setting appropriate figure size for good subplot shapes
+    # divided by 10, so image file is not too big
+    fig_width = (map_width + 1) / 10
+    fig_height = (map_height + 1) / 10
+    # computed value for white space between heat map and object count arrays
+    spacing = (0.1 / max(fig_width, fig_height))
+
+    # figure and its grid spec
+    fig = plt.figure(figsize=(fig_width, fig_height))
+    gs = fig.add_gridspec(2, 2, width_ratios=(1, len(names1)), height_ratios=(len(names2), 1),
+                          wspace=spacing, hspace=spacing)
+
+    # subplots for matrix and arrays
+    ax0 = fig.add_subplot(gs[0, 1])  # heat map
+    ax1 = fig.add_subplot(gs[1, 1], sharex=ax0)  # object counts for model1
+    ax2 = fig.add_subplot(gs[0, 0], sharey=ax0)  # object counts for model2
+
+    # array for model1 must be a row
+    counts_array1 = np.zeros((1, map_width)).astype(int)
+    # array for model2 must be a column
+    counts_array2 = np.zeros((map_height, 1)).astype(int)
+    # rewrite values from dictionaries into arrays
+    obj_counts1, obj_counts2 = object_counts
+    for x in range(map_width):
+        counts_array1[0][x] = obj_counts1[names1[x]]
+    for y in range(map_height):
+        counts_array2[y][0] = obj_counts2[names2[y]]
+
+    # get max object count so it can be used as max value when plotting
+    max_value = max(set().union(obj_counts1.values(), obj_counts2.values()))
+
+    # display values on subplots
+    ax0.imshow(heat_map, vmax=max_value, aspect="auto")
+    ax1.imshow(counts_array1, vmax=max_value, aspect="auto")
+    ax2.imshow(counts_array2, vmax=max_value, aspect="auto")
 
     # set major ticks and their labels
-    ax.set_xticks(np.arange(len(names1)))
-    ax.set_yticks(np.arange(len(names2)))
-    ax.set_xticklabels(names1)
-    ax.set_yticklabels(names2)
+    ax1.set_xticks(np.arange(map_width))
+    ax1.set_xticklabels(names1)
+    ax1.set_yticks(np.arange(1))
+    ax1.set_yticklabels(["Object count"])
+    ax1.yaxis.set_label_position("right")
+    ax1.yaxis.tick_right()
+    ax2.set_yticks(np.arange(map_height))
+    ax2.set_yticklabels(names2)
+    ax2.set_xticks(np.arange(1))
+    ax2.set_xticklabels(["Object count"])
+    ax2.xaxis.set_label_position("top")
+    ax2.xaxis.tick_top()
 
-    # set label size to 5
-    ax.tick_params(axis='both', which='major', labelsize=5)
+    # hide heat map's labels as it is inner subplot
+    ax0.label_outer()
+
+    # set label size to 5 for object names
+    ax1.tick_params(axis="x", which="major", labelsize=5)
+    ax2.tick_params(axis="y", which="major", labelsize=5)
+    # set label size to 3.5 for object count
+    ax1.tick_params(axis="y", which="major", labelsize=3.5)
+    ax2.tick_params(axis="x", which="major", labelsize=3.5)
 
     # rotate the x labels and set their alignment
-    plt.setp(ax.get_xticklabels(), rotation=90, va="center", ha="right", rotation_mode="anchor")
+    plt.setp(ax1.get_xticklabels(), rotation=90, va="center", ha="right", rotation_mode="anchor")
 
-    # set text for each field in matrix
-    for i in range(len(names1)):
-        for j in range(len(names2)):
-            num = int(heat_map[j][i])
-            # let zeros be grayed out
-            if num == 0:
-                clr = "gray"
-            else:
-                clr = "w"
-            ax.text(i, j, num, ha="center", va="center", color=clr, fontsize=3)
+    # set text annotation for heat map
+    for x in range(map_width):
+        for y in range(map_height):
+            num = int(heat_map[y][x])
+            # let zeros be gray and other numbers white
+            clr = "gray" if num == 0 else "w"
+            ax0.text(x, y, num, ha="center", va="center", color=clr, fontsize=3)
+    # do the same thing for both subplots with object counts
+    for x in range(map_width):
+        num = int(counts_array1[0][x])
+        # let zeros be gray and other numbers white
+        # but technically, object count can't be 0 -- otherwise it would be already removed at this point
+        clr = "gray" if num == 0 else "w"
+        ax1.text(x, 0, num, ha="center", va="center", color=clr, fontsize=2.5)
+    for y in range(map_height):
+        num = int(counts_array2[y][0])
+        # let zeros be gray and other numbers white
+        # but technically, object count can't be 0 -- otherwise it would be already removed at this point
+        clr = "gray" if num == 0 else "w"
+        ax2.text(0, y, num, ha="center", va="center", color=clr, fontsize=2.5)
 
     # set title and axis labels
-    ax.set_title("Name comparison for objects at the same location")
-    ax.set_xlabel(model1)
-    ax.set_ylabel(model2)
+    plt.suptitle("Name comparison for objects at the same location")
+    ax1.set_xlabel(model1)
+    ax2.set_ylabel(model2)
 
     # save photo
-    plt.tight_layout()
-    plt.savefig(file_path, dpi=250)
+    fig.savefig(file_path, dpi=250, bbox_inches="tight")
     plt.close()
 
 
@@ -328,7 +388,7 @@ def nodes_graph_pgv(pairs, color1, color2, save_path,
     # create graph object and specify all fixed pre-determined attributes
     g = pgv.AGraph(dpi=200, pad=0.6)
     g.node_attr["style"] = "filled"
-    g.node_attr['shape'] = 'circle'
+    g.node_attr["shape"] = "circle"
     g.node_attr["fixedsize"] = True
     g.node_attr["width"] = 0.3
     g.node_attr["fontsize"] = 8

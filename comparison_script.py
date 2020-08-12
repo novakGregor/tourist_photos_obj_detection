@@ -70,7 +70,7 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             start = time.time()
             heat_map = cf.get_heat_map(pairs, names1, names2)
             # save image file for heat map matrix
-            cf.save_heat_map(heat_map, model1, model2, names1, names2, heat_map_path)
+            cf.save_heat_map(heat_map, object_counts, model1, model2, names1, names2, heat_map_path)
             end = time.time()
             print("    Time elapsed: {} s".format(round(end - start, 4)))
 
