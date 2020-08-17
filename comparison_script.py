@@ -3,13 +3,13 @@ import time
 import os
 
 models = {
-    "f_rcnn-openimages": "faster_rcnn_inception_resnet_v2_atrous_oid_v4_2018_12_12",
-    "f_rcnn-slow": "faster_rcnn_nas_coco_2018_01_28",
-    "f_rcnn": "faster_rcnn_resnet50_coco_2018_01_28",
-    "r_fcn": "rfcn_resnet101_coco_2018_01_28",
-    "ssd": "ssd_mobilenet_v1_coco_2018_01_28",
-    "ssd2": "ssd_mobilenet_v1_fpn_shared_box_predictor_640x640_coco14_sync_2018_07_03",
-    "ssd-openimages": "ssd_mobilenet_v2_oid_v4_2018_12_12",
+    "f_rcnn-openimages": "faster_rcnn_inception_resnet_v2_atrous_oidv4",
+    "f_rcnn-slow": "faster_rcnn_nas_coco",
+    "f_rcnn": "faster_rcnn_resnet50_coco",
+    "r_fcn": "rfcn_resnet101_coco",
+    "ssd": "ssd_mobilenet_v1_coco",
+    "ssd2": "ssd_mobilenet_v1_fpn_coco",
+    "ssd-openimages": "ssd_mobilenetv2_oidv4",
     "yolo3": "YOLOv3"
 }
 
@@ -37,7 +37,7 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
     dir_graphs_thresh = dir_graphs_base_str.format("pair_counts", 3)
     dir_graphs_jaccard = dir_graphs_base_str.format("Jaccard_index", 0)
     dir_graphs_jaccard_thresh = dir_graphs_base_str.format("Jaccard_index", 0.01)
-    # create every dir paths that doesn't exist
+    # create every dir path that doesn't exist
     for dir_path in [dir_graphs, dir_graphs_thresh, dir_graphs, dir_graphs_jaccard, dir_graphs_jaccard_thresh]:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
@@ -113,7 +113,6 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
 
 print("---BEGINNING HEAT MAP AND NODE GRAPHS GENERATION---")
 start = time.time()
-
 # generate files for all iou thresholds
 while iou_threshold < 1:
     print("\n***Current iou threshold: {}***".format(iou_threshold))
@@ -125,6 +124,6 @@ while iou_threshold < 1:
     # increase threshold by 0.05
     iou_threshold += 0.05
     iou_threshold = round(iou_threshold, 2)
-print("---DONE---")
 end = time.time()
+print("---DONE---")
 print("Total time elapsed: {} s".format(round(end - start, 4)))
