@@ -5,33 +5,39 @@ from datetime import datetime
 import time
 import os
 
-# dict with name strings for models from TensorFlow object detection zoo
+# dict for models from TensorFlow object detection zoo
 models = {
-    "ssd": "ssd_mobilenet_v1_coco_2018_01_28",
-    "f_rcnn": "faster_rcnn_nas_coco_2018_01_28",
-    "m_rcnn": "mask_rcnn_inception_v2_coco_2018_01_28",
-    "r_fcn": "rfcn_resnet101_coco_2018_01_28",
-    "yolo": "YOLOv3"
+    "ssd": ("ssd_mobilenet_v1_coco_2018_01_28", "coco"),
+    "ssd2": ("ssd_mobilenet_v1_fpn_shared_box_predictor_640x640_coco14_sync_2018_07_03", "coco"),
+    "ssd-openimages": ("ssd_mobilenet_v2_oid_v4_2018_12_12", "openimages"),
+    "f_rcnn": ("faster_rcnn_resnet50_coco_2018_01_28", "coco"),
+    "f_rcnn-slow": ("faster_rcnn_nas_coco_2018_01_28", "coco"),
+    "f_rcnn-openimages": ("faster_rcnn_inception_resnet_v2_atrous_oid_v4_2018_12_12", "openimages"),
+    # "m_rcnn": ("mask_rcnn_inception_v2_coco_2018_01_28", "coco"),
+    "r_fcn": ("rfcn_resnet101_coco_2018_01_28", "coco"),
+    "yolo3": ("YOLOv3", "coco"),
 }
 
 # ----------------------------
 # variables for running object detection
 # ----------------------------
 
-# path to file from which labels for TensorFlow model are read
-PATH_TO_LABELS = "Data/mscoco_label_map.pbtxt"
-
 # value for score threshold
 score_threshold = 0.5
-
-# name string for used model
-used_model = models["f_rcnn"]
+# name strings for used model and its dataset
+used_model, dataset = models["f_rcnn-slow"]
 # bool for non maximum suppression application in case of TensorFlow model
 tf_apply_nms = True
-# actual model for object detection
+
+# prepare object detection model and appropriate category index
 if used_model != "YOLOv3":
     model = mf.load_tensorflow_model(used_model)
-    category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
+    # specify appropriate label map path and create category index
+    if dataset == "coco":
+        tf_labels = "data/mscoco_label_map.pbtxt"
+    else:
+        tf_labels = "data/oid_v4_label_map.pbtxt"
+    category_index = label_map_util.create_category_index_from_labelmap(tf_labels, use_display_name=True)
     use_yolo = False
 else:
     model = mf.load_yolo_model()

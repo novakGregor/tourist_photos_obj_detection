@@ -11,39 +11,41 @@ import os
 
 # loads TensorFlow model from locally saved files, downloads them if they not yet exist
 def load_tensorflow_model(model_name):
-    print("Proceeding to load local model...")
+    print("Proceeding to load model: {}...".format(model_name))
 
     # file strings
     base_url = "http://download.tensorflow.org/models/object_detection/"
     download_dir = "downloaded_models"
     model_dir = os.path.join(download_dir, model_name, "saved_model")
-    saved_model_path = model_dir + "/saved_model.pb"
-    model_file = model_name + ".tar.gz"
-    model_filepath = os.path.join(download_dir, model_file)
+    model_graph_path = model_dir + "/saved_model.pb"
+    model_tar_file = model_name + ".tar.gz"
+    model_tar_filepath = os.path.join(download_dir, model_tar_file)
 
-    print("Checking if files exist for", model_name)
-    # retrieve file if it not yet exists, else skip current model
-    if not os.path.exists(model_filepath):
-        print("    Downloading file:", model_file)
-        r = requests.get(base_url + model_file)
-        with open(model_filepath, "wb") as f:
-            f.write(r.content)
-    else:
-        print("    Skipping file as it already exists:", model_filepath)
-
-    # open downloaded file and extract the frozen graph
-    print("Checking if extraction needed for", model_name)
-    if not os.path.exists(saved_model_path):
-        print("    Extracting graph from", model_filepath)
-        tar_file = tarfile.open(model_filepath)
+    print("Checking if graph file exists: {}...".format(model_graph_path))
+    # check if graph file exists
+    if not os.path.exists(model_graph_path):
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        # retrieve tar file if it not exists
+        print("Model graph file does not exist, checking if model TAR file exists...")
+        if not os.path.exists(model_tar_file):
+            print("    Downloading model TAR file from {}...".format(base_url + model_tar_file))
+            r = requests.get(base_url + model_tar_file)
+            with open(model_tar_filepath, "wb") as f:
+                f.write(r.content)
+        else:
+            print("Model TAR file exists, skipping download...")
+        # extract graph file from tar file
+        print("Extracting graph from {}...".format(model_tar_filepath))
+        tar_file = tarfile.open(model_tar_filepath)
         tar_file.extractall(download_dir)
         # close file
         tar_file.close()
-    else:
-        print("    Skipping extraction as model already extracted:", saved_model_path)
 
+    print("Loading model...")
     model = tf.saved_model.load(model_dir)
     model = model.signatures["serving_default"]
+    print("Done.")
 
     return model
 
@@ -54,7 +56,7 @@ def load_yolo_model():
     download_dir = "downloaded_models/YOLOv3"
     weights_file = download_dir + "/yolov3.weights"
 
-    cfg_file = "Data/YOLO/yolov3.cfg"
+    cfg_file = "data/YOLO/yolov3.cfg"
 
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
@@ -77,7 +79,7 @@ def load_yolo_model():
 
 # returns labels dict for YOLO, which can be used in the same way as category index for TensorFlow models
 def get_yolo_labels():
-    coco_names = "Data/YOLO/coco.names"
+    coco_names = "data/YOLO/coco.names"
     labels_list = open(coco_names).read().strip().split("\n")
     category_index = {i: {"id": i, "name": labels_list[i]} for i in range(len(labels_list))}
 
