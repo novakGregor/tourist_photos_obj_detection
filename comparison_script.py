@@ -3,31 +3,44 @@ import time
 import os
 
 models = {
-    "f_rcnn": "faster_rcnn_nas_coco_2018_01_28",
+    "f_rcnn-openimages": "faster_rcnn_inception_resnet_v2_atrous_oid_v4_2018_12_12",
+    "f_rcnn-slow": "faster_rcnn_nas_coco_2018_01_28",
+    "f_rcnn": "faster_rcnn_resnet50_coco_2018_01_28",
     "r_fcn": "rfcn_resnet101_coco_2018_01_28",
     "ssd": "ssd_mobilenet_v1_coco_2018_01_28",
-    "yolo": "YOLOv3"
+    "ssd2": "ssd_mobilenet_v1_fpn_shared_box_predictor_640x640_coco14_sync_2018_07_03",
+    "ssd-openimages": "ssd_mobilenet_v2_oid_v4_2018_12_12",
+    "yolo3": "YOLOv3"
 }
-res_dir = "Results/2020-08-08 Piran_en"
+
+res_dir = "Results/2020-08-17 Piran_en"
 node_color1 = "yellow"
 node_color2 = "red"
-iou_threshold = 0.7
+iou_threshold = 0.5
 
 
 def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2, iou_thresh=0.7, node_graphs="pgv"):
-    thresh_str = "threshold={}".format(iou_thresh)
+    # string for folder name that indicates used iou threshold
+    thresh_str = "iou_threshold={}".format(iou_thresh)
+
     # dir for heat maps
     dir_heatmaps = os.path.join(results_dir, "comparison", thresh_str, "heat_maps")
     if not os.path.exists(dir_heatmaps):
         os.makedirs(dir_heatmaps)
-    # dir for node graphs with pair counts as weights
-    dir_graphs = os.path.join(results_dir, "comparison", thresh_str, "node_graphs", "weights=pair_counts")
-    if not os.path.exists(dir_graphs):
-        os.makedirs(dir_graphs)
-    # dir for node graphs with Jaccard index as weights
-    dir_graphs_jaccard = os.path.join(results_dir, "comparison", thresh_str, "node_graphs", "weights=Jaccard_index")
-    if not os.path.exists(dir_graphs_jaccard):
-        os.makedirs(dir_graphs_jaccard)
+
+    # base dir str for node graphs
+    dir_graphs_base_str = os.path.join(results_dir, "comparison", thresh_str, "node_graphs",
+                                       "widths={}", "width_threshold={}")
+    # dir graphs for all variations
+    # NOTE: only weight thresholds currently used, are 3 when using object counts and 0.01 when using Jaccard index
+    dir_graphs = dir_graphs_base_str.format("pair_counts", 0)
+    dir_graphs_thresh = dir_graphs_base_str.format("pair_counts", 3)
+    dir_graphs_jaccard = dir_graphs_base_str.format("Jaccard_index", 0)
+    dir_graphs_jaccard_thresh = dir_graphs_base_str.format("Jaccard_index", 0.01)
+    # create every dir paths that doesn't exist
+    for dir_path in [dir_graphs, dir_graphs_thresh, dir_graphs, dir_graphs_jaccard, dir_graphs_jaccard_thresh]:
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
     for model1 in models_dict.values():
         for model2 in models_dict.values():
@@ -42,12 +55,13 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
                 save_file = "{} with itself.png".format(model1)
                 used_iou = 1
 
-            # where heat map will be saved
+            # path for heat map file location
             heat_map_path = os.path.join(dir_heatmaps, save_file)
-            # where node graph for pair counts will be saved
+            # paths for file locations of all graph variations
             graph_path = os.path.join(dir_graphs, save_file)
-            # where node graph for Jaccard indices will be saved
+            graph_path_thresh = os.path.join(dir_graphs_thresh, save_file)
             graph_path_jaccard = os.path.join(dir_graphs_jaccard, save_file)
+            graph_path_jaccard_thresh = os.path.join(dir_graphs_jaccard_thresh, save_file)
 
             # compare models
             print("Comparing {} with {}".format(model1, model2))
@@ -79,10 +93,17 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             start = time.time()
             assert node_graphs in ["pgv", "nx"], "Invalid parameter for node graph type"
             if node_graphs == "pgv":
+                # create graphs without width threshold
                 cf.nodes_graph_pgv(pairs, color1, color2, graph_path)
                 cf.nodes_graph_pgv(pairs, color1, color2, graph_path_jaccard,
                                    use_jaccard=True, object_counts=object_counts)
+                # create graphs with width threshold
+                cf.nodes_graph_pgv(pairs, color1, color2, graph_path_thresh,
+                                   weight_thresh=3)
+                cf.nodes_graph_pgv(pairs, color1, color2, graph_path_jaccard_thresh,
+                                   use_jaccard=True, jaccard_thresh=0.01, object_counts=object_counts)
             elif node_graphs == "nx":
+                # TODO: use of weight/width threshold (if nx will be actually used)
                 cf.nodes_graph_nx(pairs, color1, color2, graph_path)
                 cf.nodes_graph_nx(pairs, color1, color2, graph_path_jaccard,
                                   use_jaccard=True, object_counts=object_counts)
@@ -91,8 +112,19 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
 
 
 print("---BEGINNING HEAT MAP AND NODE GRAPHS GENERATION---")
-t1 = time.time()
-generate_heatmaps_and_node_graphs(models, res_dir, node_color1, node_color2, iou_thresh=iou_threshold)
-t2 = time.time()
+start = time.time()
+
+# generate files for all iou thresholds
+while iou_threshold < 1:
+    print("\n***Current iou threshold: {}***".format(iou_threshold))
+    t1 = time.time()
+    generate_heatmaps_and_node_graphs(models, res_dir, node_color1, node_color2, iou_thresh=iou_threshold)
+    t2 = time.time()
+    print("Time elapsed: {} s".format(round(t2 - t1, 4)))
+
+    # increase threshold by 0.05
+    iou_threshold += 0.05
+    iou_threshold = round(iou_threshold, 2)
 print("---DONE---")
-print("Total time elapsed: {} s".format(round(t2 - t1, 4)))
+end = time.time()
+print("Total time elapsed: {} s".format(round(end - start, 4)))
