@@ -22,19 +22,20 @@ def normalize_to_range(value, min_data, max_data, min_normalized, max_normalized
 
 
 # computes jaccard indices from given list of weights and returns them as dictionary
-# object's weight is considered as intersection, and max value from models' object counts is considered as union
-def jaccard_indices_from_weights(weights, object_counts1, objects_counts2):
+def jaccard_indices_from_weights(weights, object_counts1, objects_counts2, jaccard_thresh):
     jaccard_indices = {}
     for pair in weights:
         weight = weights[pair]
         occurrence1 = object_counts1[pair[0][:-1]]
         occurrence2 = objects_counts2[pair[1][:-1]]
-        max_count = max(occurrence1, occurrence2)
-        if max_count == 0:
+        # union = set1 + set2 - intersection
+        union = occurrence1 + occurrence2 - weight
+        if union == 0:
             jaccard_index = 0
         else:
-            jaccard_index = round(weight / max_count, 4)
-        jaccard_indices[pair] = jaccard_index
+            jaccard_index = round(weight / union, 4)
+        if jaccard_index > jaccard_thresh:
+            jaccard_indices[pair] = jaccard_index
     return jaccard_indices
 
 
@@ -329,7 +330,7 @@ def save_heat_map(heat_map, object_counts, model1, model2, names1, names2, file_
 
 # returns dictionary with data for creating node graphs
 def dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=0,
-                        use_jaccard=False, object_counts=None):
+                        use_jaccard=False, jaccard_thresh=0, object_counts=None):
 
     # add ones and twos to names in pairs - for separating nodes according to model
     pairs = [(pair[0] + "1", pair[1] + "2") for pair in pairs]
@@ -341,11 +342,13 @@ def dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=0,
     if use_jaccard:
         # jaccard indices will be used as weights instead of object counts
         assert object_counts is not None, "Object counts not given"
-        weights = jaccard_indices_from_weights(weights, object_counts[0], object_counts[1])
+        weights = jaccard_indices_from_weights(weights, object_counts[0], object_counts[1], jaccard_thresh)
+        # remove edges that don't have big enough Jaccard index (they are not present anymore in weights dict)
+        edges = [pair for pair in edges if pair in weights]
 
     # normalize weights; normalized weights will be used as edge widths
-    min_weight = weights[min(weights, key=lambda x: weights[x])]
-    max_weight = weights[max(weights, key=lambda x: weights[x])]
+    min_weight = min(weights.values())
+    max_weight = max(weights.values())
     normalized_weights = {pair: normalize_to_range(weights[pair], min_weight, max_weight, 0.5, 7)
                           for pair in weights}
 
@@ -379,10 +382,10 @@ def dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=0,
 
 # draws node graph with pygraphviz
 def nodes_graph_pgv(pairs, color1, color2, save_path,
-                    use_jaccard=False, object_counts=None, weight_thresh=0):
+                    use_jaccard=False, jaccard_thresh=0, object_counts=None, weight_thresh=0):
     # retrieve data for graph creation
     graph_dict = dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=weight_thresh,
-                                     use_jaccard=use_jaccard, object_counts=object_counts)
+                                     use_jaccard=use_jaccard, jaccard_thresh=jaccard_thresh, object_counts=object_counts)
     nodes, color_map, edges, weights, normalized_weights = graph_dict.values()
 
     # create graph object and specify all fixed pre-determined attributes
