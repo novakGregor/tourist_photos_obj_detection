@@ -6,49 +6,56 @@ import time
 import os
 
 # dict for models from TensorFlow object detection zoo
+# score thresholds pre-determined from bar charts
 models = {
     "ssd":
         ("ssd_mobilenet_v1_coco",
          "ssd_mobilenet_v1_coco_2018_01_28",
-         "coco"),
+         "coco",
+         0.3),
     "ssd2":
         ("ssd_mobilenet_v1_fpn_coco",
          "ssd_mobilenet_v1_fpn_shared_box_predictor_640x640_coco14_sync_2018_07_03",
-         "coco"),
+         "coco",
+         0.4),
     "ssd-openimages":
         ("ssd_mobilenetv2_oidv4",
          "ssd_mobilenet_v2_oid_v4_2018_12_12",
-         "openimages"),
+         "openimages",
+         0.3),
     "f_rcnn":
         ("faster_rcnn_resnet50_coco",
          "faster_rcnn_resnet50_coco_2018_01_28",
-         "coco"),
+         "coco",
+         0.5),
     "f_rcnn-slow":
         ("faster_rcnn_nas_coco",
          "faster_rcnn_nas_coco_2018_01_28",
-         "coco"),
+         "coco",
+         0.8),
     "f_rcnn-openimages":
         ("faster_rcnn_inception_resnet_v2_atrous_oidv4",
          "faster_rcnn_inception_resnet_v2_atrous_oid_v4_2018_12_12",
-         "openimages"),
+         "openimages",
+         0.5),
     "r_fcn":
         ("rfcn_resnet101_coco",
          "rfcn_resnet101_coco_2018_01_28",
-         "coco"),
+         "coco",
+         0.5),
     "yolo3":
         ("YOLOv3"
          "YOLOv3",
-         "coco")
+         "coco",
+         0.5)
 }
 
 # ----------------------------
 # variables for running object detection
 # ----------------------------
 
-# value for score threshold
-score_threshold = 0.5
-# name strings for used model and its dataset
-used_model_name, used_model, dataset = models["ssd"]
+# name strings for used model and its dataset + pre-determined score thresholds for each model
+used_model_name, used_model, dataset, score_threshold = models["r_fcn"]
 # bool for non maximum suppression application in case of TensorFlow model
 tf_apply_nms = True
 
