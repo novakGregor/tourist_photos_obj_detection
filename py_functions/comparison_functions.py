@@ -22,12 +22,20 @@ def normalize_to_range(value, min_data, max_data, min_normalized, max_normalized
 
 
 # computes jaccard indices from given list of weights and returns them as dictionary
-def jaccard_indices_from_weights(weights, object_counts1, objects_counts2, jaccard_thresh):
+def jaccard_indices_from_weights(weights, object_counts1, objects_counts2, jaccard_thresh, nodes_mode=True):
     jaccard_indices = {}
     for pair in weights:
         weight = weights[pair]
-        occurrence1 = object_counts1[pair[0][:-1]]
-        occurrence2 = objects_counts2[pair[1][:-1]]
+
+        # nodes mode -> names in pairs are names of nodes
+        # (strings have digit 1 or 2 on last place, indicating which model they belong to)
+        if nodes_mode:
+            occurrence1 = object_counts1[pair[0][:-1]]
+            occurrence2 = objects_counts2[pair[1][:-1]]
+        # not nodes mode -> names in pairs are normal names of objects
+        else:
+            occurrence1 = object_counts1[pair[0]]
+            occurrence2 = objects_counts2[pair[1]]
         # union = set1 + set2 - intersection
         union = occurrence1 + occurrence2 - weight
         if union == 0:
@@ -329,8 +337,7 @@ def save_heat_map(heat_map, object_counts, model1, model2, names1, names2, file_
 
 
 # returns dictionary with data for creating node graphs
-def dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=0,
-                        use_jaccard=False, jaccard_thresh=0, object_counts=None):
+def dict_for_node_graph(pairs, color1, color2, use_nx, weight_thresh, use_jaccard, jaccard_thresh, object_counts):
 
     # add ones and twos to names in pairs - for separating nodes according to model
     pairs = [(pair[0] + "1", pair[1] + "2") for pair in pairs]
@@ -384,8 +391,8 @@ def dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=0,
 def nodes_graph_pgv(pairs, color1, color2, save_path,
                     use_jaccard=False, jaccard_thresh=0, object_counts=None, weight_thresh=0):
     # retrieve data for graph creation
-    graph_dict = dict_for_node_graph(pairs, color1, color2, use_nx=False, weight_thresh=weight_thresh,
-                                     use_jaccard=use_jaccard, jaccard_thresh=jaccard_thresh, object_counts=object_counts)
+    graph_dict = dict_for_node_graph(pairs, color1, color2, False, weight_thresh,
+                                     use_jaccard, jaccard_thresh, object_counts)
     nodes, color_map, edges, weights, normalized_weights = graph_dict.values()
 
     # create graph object and specify all fixed pre-determined attributes
@@ -416,11 +423,12 @@ def nodes_graph_pgv(pairs, color1, color2, save_path,
     g.draw(save_path)
 
 
-# draws node graph with pygraphviz
-def nodes_graph_nx(pairs, color1, color2, save_path, use_jaccard=False, object_counts=None, weight_thresh=0):
+# draws node graph with networkx
+def nodes_graph_nx(pairs, color1, color2, save_path,
+                   use_jaccard=False, object_counts=None, jaccard_thresh=0, weight_thresh=0):
     # retrieve data for graph creation
-    graph_dict = dict_for_node_graph(pairs, color1, color2, weight_thresh=weight_thresh, use_nx=True,
-                                     use_jaccard=use_jaccard, object_counts=object_counts)
+    graph_dict = dict_for_node_graph(pairs, color1, color2, True, weight_thresh,
+                                     use_jaccard, jaccard_thresh, object_counts)
     nodes, color_map, edges, weights, normalized_weights = graph_dict.values()
 
     # graph object
@@ -460,3 +468,137 @@ def nodes_graph_nx(pairs, color1, color2, save_path, use_jaccard=False, object_c
     # save matplotlib figure at given path
     plt.axis("off")
     plt.savefig(save_path, dpi=200)
+
+
+def location_pair_tuples(pairs, obj_counts, jaccard_primary, count_thresh, jaccard_thresh):
+    tuples = []
+
+    # used pairs are those that have big enough count threshold
+    used_pairs = sorted([pair for pair in set(pairs) if pairs.count(pair) >= count_thresh])
+    # build dictionary for pair counts
+    pair_counts = {pair: pairs.count(pair) for pair in used_pairs}
+
+    # get jaccard indices
+    jaccard_indices = jaccard_indices_from_weights(pair_counts, obj_counts[0], obj_counts[1], jaccard_thresh,
+                                                   nodes_mode=False)
+
+    # delete pairs that are not used because of jaccard threshold
+    used_pairs = [pair for pair in used_pairs if pair in jaccard_indices]
+    pair_counts = {pair: pairs.count(pair) for pair in used_pairs}
+
+    # order of used measures is different according to which measure is used as primary
+    if jaccard_primary:
+        prim_measure = jaccard_indices
+        sec_measure = pair_counts
+    else:
+        prim_measure = pair_counts
+        sec_measure = jaccard_indices
+
+    # first group pairs by first object name in pair, with help of defaultdict
+    grouped_dict = defaultdict(list)
+    for pair in used_pairs:
+        # {name1: (count, name2)}
+        grouped_dict[pair[0]].append((prim_measure[pair], sec_measure[pair], pair[1]))
+
+    # then order defaultdict's values by counts
+    for obj in grouped_dict:
+        grouped_dict[obj] = sorted(grouped_dict[obj], key=lambda x: x[0], reverse=True)
+
+    # retrieve items from defaultdict and order them by biggest count
+    # lambda x[1][0][0] -> for each dict key's value ([1]), use count from first pair ([0][0])
+    sorted_dict_vals = sorted(list(grouped_dict.items()), key=lambda x: x[1][0][0], reverse=True)
+
+    # reformat them into tuples, leaving object counts and Jaccard indices in the middle
+    for obj in sorted_dict_vals:
+        for pair in obj[1]:
+            tuples.append((obj[0], pair[0], pair[1], pair[2]))
+
+    return tuples
+
+
+def plot_pair_table(pairs, save_path, models, obj_counts, jaccard_primary=False, count_thresh=0, jaccard_thresh=0):
+    tuples = location_pair_tuples(pairs, obj_counts, jaccard_primary, count_thresh, jaccard_thresh)
+
+    names1 = [pair_tuple[0] for pair_tuple in tuples]
+    names2 = [pair_tuple[-1] for pair_tuple in tuples]
+
+    # can't use .values() because there can be less pairs in tuples because of thresholds
+    obj_counts1 = [obj_counts[0][name] for name in names1]
+    obj_counts2 = [obj_counts[1][name] for name in names2]
+
+    # primary values are index 1, secondary on index 2 (Jaccard indices or pair counts)
+    prim_vals = [pair_tuple[1] for pair_tuple in tuples]
+    sec_vals = [pair_tuple[2] for pair_tuple in tuples]
+
+    # strings for showing text in table
+    vals = ["{} ({})".format(val1, val2) for val1, val2 in zip(prim_vals, sec_vals)]
+
+    # values that will be shown as table
+    table_values = [obj_counts1, names1, vals, names2, obj_counts2]
+
+    # for coloring table cells
+    colors1 = []
+    colors2 = []
+    color_options1 = ["#ffd000", "yellow"]
+    color_options2 = ["firebrick", "red"]
+
+    # make colors alternate by groups of first model's object names
+    c_idx = 1
+    prev_name = ""
+    for name in table_values[1]:
+        if name != prev_name:
+            c_idx = 1 - c_idx
+        colors1.append(color_options1[c_idx])
+        colors2.append(color_options2[c_idx])
+        prev_name = name
+
+    # make main values cells be darker if value is bigger
+    # first, create normalization for matplotlib specter
+    # otherwise biggest value would be black and smallest white
+    # also, normalize values to range 1-300, for better color consistency between different comparisons
+    v_min = min(prim_vals)
+    v_max = max(prim_vals)
+    used_prim_vals = []
+    for val in prim_vals:
+        norm_val = normalize_to_range(val, v_min, v_max, 1, 300)
+        used_prim_vals.append(norm_val)
+
+    v_min = min(used_prim_vals)
+    v_max = max(used_prim_vals)
+    norm = plt.Normalize(v_min - 150, v_max + 150)
+    v_colors = plt.cm.get_cmap("binary")(norm(used_prim_vals)).tolist()
+
+    # create list for table cell's colors
+    t_colors = [colors1, colors1, v_colors, colors2, colors2]
+
+    # insert text for row headers
+    table_values[0].insert(0, "object counts")
+    table_values[1].insert(0, "object names")
+    table_values[2].insert(0, "matches")
+    table_values[3].insert(0, "object names")
+    table_values[4].insert(0, "object counts")
+
+    # insert "white" in each colors list
+    # this is done so first cells, used as row headers, are white
+    for colors in [colors1, v_colors, colors2]:
+        colors.insert(0, "white")
+
+    plt.figure(figsize=(len(tuples), 5))
+    plt.table(cellText=table_values, cellLoc="center", loc="center", cellColours=t_colors)
+    plt.axis("off")
+
+    # add info text to image
+    if jaccard_primary:
+        title_text = "Comparison, ordered by Jaccard indices of matches, grouped by first model's objects"
+    else:
+        title_text = "Comparison, ordered by number of matches, grouped by first model's objects"
+    threshold_text = "Jaccard index threshold = {}" \
+                     "\ncount (matches) threshold = {}".format(jaccard_thresh, count_thresh)
+    plt.figtext(0.5, 0.8, title_text, ha="center", fontsize=20)
+    plt.figtext(0.5, 0.1, threshold_text, ha="center", fontsize=10)
+    plt.figtext(0.5, 0.6, models[0], ha="center", fontsize=15)
+    plt.figtext(0.5, 0.35, models[1], ha="center", fontsize=15)
+
+    # finally, save plot into image
+    plt.savefig(save_path, bbox_inches="tight", dpi=150)
+    plt.close()
