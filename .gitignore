@@ -2,3 +2,7 @@
 __pycache__/
 Results/
 downloaded_models/
+Photos/
+# annotations file is quite big
+# can be downloaded from https://cocodataset.org/#download (2014 Train/Val annotations zip)
+data/coco_annotations/
