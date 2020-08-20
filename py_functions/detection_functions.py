@@ -89,6 +89,10 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
             with Image.open(item_path) as opened_image:
                 photo_np = np.array(opened_image)
 
+            # reshape grayscale image into 3 channels (tensorflow model expects RGB image)
+            if len(photo_np.shape) < 3:
+                photo_np = np.stack((photo_np,) * 3, axis=-1)
+
             # dimensions
             photo_x, photo_y = photo_np.shape[1], photo_np.shape[0]
 
@@ -111,7 +115,7 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
                 data_dict = mf.detect_with_yolo(model, photo_np, suppression_threshold)
 
             # save photo with bounding boxes
-            results_photo = mf.get_inference_image(item_path, data_dict, category_index,
+            results_photo = mf.get_inference_image(photo_np, data_dict, category_index,
                                                    line_thickness=2, score_threshold=score_threshold)
             img = Image.fromarray(results_photo)
             print("    Saving visualized result on location", result_photo_path)

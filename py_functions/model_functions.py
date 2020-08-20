@@ -1,7 +1,6 @@
 import cv2 as cv
 from object_detection.utils import visualization_utils as vis_util
 from object_detection.utils import ops as utils_ops
-from PIL import Image
 import tensorflow as tf
 import numpy as np
 import tarfile
@@ -45,7 +44,7 @@ def load_tensorflow_model(model_name):
     print("Loading model...")
     model = tf.saved_model.load(model_dir)
     model = model.signatures["serving_default"]
-    print("Done.")
+    print("Loading model done.")
 
     return model
 
@@ -202,11 +201,9 @@ def detect_with_yolo(yolo_model, image, suppression_threshold=0.3):
 
 # visually applies bounding boxes and other detected data on the photo
 # wrapper function for object_detection's visualize_boxes_and_labels_on_image_array() function
-def get_inference_image(image_path, output_dict, category_index, line_thickness=1, score_threshold=0.5):
+def get_inference_image(image_np, output_dict, category_index, line_thickness=1, score_threshold=0.5):
     # the array based representation of the image will be used later in order to prepare the
     # result image with boxes and labels on it.
-    with Image.open(image_path) as opened_image:
-        image_np = np.array(opened_image)
     # Visualization of the results of a detection.
     vis_util.visualize_boxes_and_labels_on_image_array(
         image_np,
