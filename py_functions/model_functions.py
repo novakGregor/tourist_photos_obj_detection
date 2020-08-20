@@ -7,6 +7,16 @@ import tarfile
 import requests
 import os
 
+# uncomment this in case of CUDNN_STATUS_ALLOC_FAILED when running on GPU
+"""
+physical_devices = tf.config.list_physical_devices('GPU')
+try:
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except (ValueError, RuntimeError) as e:
+    # Invalid device or cannot modify virtual devices once initialized.
+    print(e)
+"""
+
 
 # loads TensorFlow model from locally saved files, downloads them if they not yet exist
 def load_tensorflow_model(model_name):
