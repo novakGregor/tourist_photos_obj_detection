@@ -70,7 +70,7 @@ def build_json_dict(data_dict, category_index, photo, width, height, score_thres
 def run_detection(model, model_name, category_index, photos_path, results_path,
                   score_threshold=0.5, apply_nms=False, use_yolo=False, suppression_threshold=0.3):
     full_dict = {}
-    for item in os.listdir(photos_path):
+    for item in sorted(os.listdir(photos_path)):
         # run recursively in subdirectory
         if os.path.isdir(os.path.join(photos_path, item)):
             new_photos_path = os.path.join(photos_path, item)
