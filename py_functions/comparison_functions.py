@@ -4,7 +4,6 @@ import pygraphviz as pgv
 import networkx as nx
 import numpy as np
 import json
-import os
 
 
 # returns intersection of two lists and sorts it from min to max
@@ -80,23 +79,12 @@ def get_iou(b_box1, b_box2):
 
 # function for model comparison
 # returns dictionary with comparison data
-def compare_two_models(results_dir, first_model, second_model, iou_thresh=0.7):
-    # directories for models
-    first_model_dir = os.path.join(results_dir, first_model)
-    second_model_dir = os.path.join(results_dir, second_model)
-
-    # abort if data doesn't exist
-    if not (os.path.exists(first_model_dir) and os.path.exists(second_model_dir)):
-        print("Results for at least one model don't exist at specified path!")
-        return
-
-    # build paths do data files
-    base_filename = "all_photos_data - "
-    first_model_data_path = "{}/{}{}.json".format(first_model_dir, base_filename, first_model)
-    second_model_data_path = "{}/{}{}.json".format(second_model_dir, base_filename, second_model)
+def compare_two_models(model_names, model_json_paths, iou_thresh=0.7):
+    model1, model2 = model_names
+    model1_json_path, model2_json_path = model_json_paths
 
     # load data from JSON files
-    with open(first_model_data_path) as f1, open(second_model_data_path) as f2:
+    with open(model1_json_path) as f1, open(model2_json_path) as f2:
         data1 = json.load(f1)
         data2 = json.load(f2)
 
@@ -189,8 +177,8 @@ def compare_two_models(results_dir, first_model, second_model, iou_thresh=0.7):
 
     # return all relevant data
     return_dict = {
-        "model1": first_model,
-        "model2": second_model,
+        "model1": model1,
+        "model2": model2,
         "all_names1": sorted(list(all_names1)),
         "all_names2": sorted(list(all_names2)),
         "object_count1": object_count1,
@@ -588,10 +576,6 @@ def plot_pair_table(pairs, save_path, models, obj_counts, jaccard_primary=False,
     the_table.auto_set_font_size(False)
     the_table.set_fontsize(6)
     plt.axis("off")
-
-    print(len(table_values[0]), len(table_values))
-    print(len(tuples)+1, 5)
-    print(len(t_colors[0]), len(t_colors))
 
     # add info text to image
     if jaccard_primary:

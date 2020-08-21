@@ -71,6 +71,13 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
                 continue
             print("Comparing {} with {}".format(model1, model2))
 
+            # model and json tuples
+            model_names = (model1, model2)
+            base_json = "all_photos_data - {}.json"
+            model1_json_path = os.path.join(results_dir, model1, base_json.format(model1))
+            model2_json_path = os.path.join(results_dir, model2, base_json.format(model2))
+            json_paths = model1_json_path, model2_json_path
+
             # ----------------
             # variables for full file paths
             # ----------------
@@ -93,7 +100,7 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             jaccard_table_file_thresh = os.path.join(jaccard_tables_thresh, save_file)
 
             # comparison execution
-            comparison_data = cf.compare_two_models(results_dir, model1, model2, iou_thresh)
+            comparison_data = cf.compare_two_models(model_names, json_paths, iou_thresh)
 
             # get object counts
             object_counts = (comparison_data["object_count1"], comparison_data["object_count2"])
