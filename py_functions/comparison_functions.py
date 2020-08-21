@@ -583,9 +583,15 @@ def plot_pair_table(pairs, save_path, models, obj_counts, jaccard_primary=False,
     for colors in [colors1, v_colors, colors2]:
         colors.insert(0, "white")
 
-    plt.figure(figsize=(len(tuples), 5))
-    plt.table(cellText=table_values, cellLoc="center", loc="center", cellColours=t_colors)
+    plt.figure(figsize=(len(tuples)+1, 5))
+    the_table = plt.table(cellText=table_values, cellLoc="center", loc="center", cellColours=t_colors)
+    the_table.auto_set_font_size(False)
+    the_table.set_fontsize(6)
     plt.axis("off")
+
+    print(len(table_values[0]), len(table_values))
+    print(len(tuples)+1, 5)
+    print(len(t_colors[0]), len(t_colors))
 
     # add info text to image
     if jaccard_primary:
