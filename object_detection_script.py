@@ -44,7 +44,7 @@ models = {
          "coco",
          0.5),
     "yolo3":
-        ("YOLOv3"
+        ("YOLOv3",
          "YOLOv3",
          "coco",
          0.5)
@@ -89,6 +89,9 @@ photos_dir_path = os.path.join(root_dir, photos_dir)
 # directory where results will be saved
 results_dir = "Results/{} {}/{}".format(today, photos_dir, used_model_name)
 
+# determines if additional result files will be generated or not
+generate_files = True
+
 
 # ----------------------------
 # object detection execution
@@ -97,7 +100,7 @@ results_dir = "Results/{} {}/{}".format(today, photos_dir, used_model_name)
 print("---STARTING OBJECT DETECTION---")
 start1 = time.time()
 detection_data_dict = df.run_detection(model, used_model_name, category_index, photos_dir_path, results_dir,
-                                       apply_nms=tf_apply_nms, use_yolo=use_yolo, score_threshold=score_threshold)
+                                       generate_files, score_threshold, tf_apply_nms, use_yolo)
 end1 = time.time()
 print("---DONE---")
 elapsed_time_detection = end1 - start1
@@ -106,17 +109,19 @@ print("\nTime elapsed: {:.4f} s ({:.4f} m)".format(elapsed_time_detection, elaps
 
 print("\n\n---GENERATING ADDITIONAL DATA FILES---")
 start2 = time.time()
-# JSON files and saturation data for each photo
-df.generate_data_files(detection_data_dict, category_index,
-                       score_threshold=score_threshold, generate_saturation_stats=True)
 # full csv
 df.generate_csv(detection_data_dict, category_index, used_model_name, results_dir, score_thresh=score_threshold)
-# csv files in each subdir
-df.generate_csv_by_folder(detection_data_dict, category_index, used_model_name, score_thresh=score_threshold)
 # full json
 df.generate_json(detection_data_dict, category_index, used_model_name, results_dir, score_thresh=score_threshold)
-# json files in each subdir
-df.generate_json_by_folder(detection_data_dict, category_index, used_model_name, score_thresh=score_threshold)
+
+if generate_files:
+    # JSON files and saturation data for each photo
+    df.generate_data_files(detection_data_dict, category_index,
+                           score_threshold=score_threshold, generate_saturation_stats=True)
+    # csv files in each subdir
+    df.generate_csv_by_folder(detection_data_dict, category_index, used_model_name, score_thresh=score_threshold)
+    # json files in each subdir
+    df.generate_json_by_folder(detection_data_dict, category_index, used_model_name, score_thresh=score_threshold)
 end2 = time.time()
 print("---DONE---")
 elapsed_time_files = end2 - start2

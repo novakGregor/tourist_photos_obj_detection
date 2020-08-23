@@ -67,7 +67,7 @@ def build_json_dict(data_dict, category_index, photo, width, height, score_thres
 
 # recursively runs detection on photos in given directory
 # and saves new results into given results directory
-def run_detection(model, model_name, category_index, photos_path, results_path,
+def run_detection(model, model_name, category_index, photos_path, results_path, save_photos,
                   score_threshold=0.5, apply_nms=False, use_yolo=False, suppression_threshold=0.3):
     full_dict = {}
     for item in sorted(os.listdir(photos_path)):
@@ -76,8 +76,8 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
             new_photos_path = os.path.join(photos_path, item)
             new_results_path = os.path.join(results_path, item)
             full_dict = dict(full_dict, **run_detection(model, model_name, category_index, new_photos_path,
-                                                        new_results_path, score_threshold, apply_nms, use_yolo,
-                                                        suppression_threshold))
+                                                        new_results_path, save_photos, score_threshold, apply_nms,
+                                                        use_yolo, suppression_threshold))
         # check if file jpg/png
         elif item[-4:] == ".jpg" or item[-4:] == ".png":
             # get name of photo without file extension, for saving results files with identical name
@@ -114,12 +114,13 @@ def run_detection(model, model_name, category_index, photos_path, results_path,
             else:
                 data_dict = mf.detect_with_yolo(model, photo_np, suppression_threshold)
 
-            # save photo with bounding boxes
-            results_photo = mf.get_inference_image(photo_np, data_dict, category_index,
-                                                   line_thickness=2, score_threshold=score_threshold)
-            img = Image.fromarray(results_photo)
-            print("    Saving visualized result on location", result_photo_path)
-            img.save(result_photo_path)
+            if save_photos:
+                # save photo with bounding boxes
+                results_photo = mf.get_inference_image(photo_np, data_dict, category_index,
+                                                       line_thickness=2, score_threshold=score_threshold)
+                img = Image.fromarray(results_photo)
+                print("    Saving visualized result on location", result_photo_path)
+                img.save(result_photo_path)
 
             photo_data = (filename, results_path, photo_x, photo_y)
             full_dict[item_path] = (photo_data, data_dict)
