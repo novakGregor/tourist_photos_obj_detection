@@ -97,18 +97,10 @@ def compare_two_models(model_names, model_json_paths, iou_thresh=0.7):
 
     # for each photo
     for i in range(len(data1)):
-        # names that were detected by both models regardless of location
-        common_names = set()
+        # object occurrences, only on current photo
+        photo_object_count1, photo_object_count2 = defaultdict(int), defaultdict(int)
         # objects that were detected by both models at the same location regardless of names
         common_locations = []
-        # names that were detected only by particular model
-        unique_names1, unique_names2 = set(), set()
-        # objects that were detected at particular location only by particular model
-        unique_locations1, unique_locations2 = set(), set()
-
-        # sets, used to determine if match was already found for object at particular location
-        found_common_locations1, found_common_locations2 = set(), set()
-
         # objects, detected by first model on current photo
         objects1 = data1[i]["Objects"]
         # objects, detected by second model on current photo
@@ -121,57 +113,33 @@ def compare_two_models(model_names, model_json_paths, iou_thresh=0.7):
         # update object counts
         for name in obj_names1:
             object_count1[name] += 1
+            photo_object_count1[name] += 1
         for name in obj_names2:
             object_count2[name] += 1
+            photo_object_count1[name] += 1
 
         # for each photo, update sets of all appeared names
         all_names1.update(obj_names1)
         all_names2.update(obj_names2)
-        # unique names of one model are those that were not detected by the other one
-        unique_names1.update([name for name in obj_names1 if name not in obj_names2])
-        unique_names2.update([name for name in obj_names2 if name not in obj_names1])
 
         # for each object, detected by first model
         for obj1 in objects1:
             name1 = obj1["Class name"]
             b_box1 = obj1["Bounding box"]
-            # used for determining uniqueness of detected object
-            obj1_identifier = (name1, tuple(b_box1.items()))
-
             # for each object, detected by second model
             for obj2 in objects2:
                 name2 = obj2["Class name"]
                 b_box2 = obj2["Bounding box"]
-                # used for determining uniqueness of detected object
-                obj2_identifier = (name2, tuple(b_box2.items()))
-
                 if get_iou(b_box1, b_box2) >= iou_thresh:
                     # IOU is big enough -> objects share their location
                     common_locations.append((name1, name2))
 
-                    # update sets for determining already found matches
-                    found_common_locations1.add(obj1_identifier)
-                    found_common_locations2.add(obj2_identifier)
-                else:
-                    # obj1 is unique if current obj2 is last object in list and common object for obj1 was not found
-                    if b_box2 == objects2[-1]["Bounding box"] and obj1_identifier not in found_common_locations1:
-                        unique_locations1.add(obj1_identifier)
-                    # similarly for obj2 but the other way around
-                    if b_box1 == objects1[-1]["Bounding box"] and obj2_identifier not in found_common_locations2:
-                        unique_locations2.add(obj2_identifier)
-
-        # update set for common names with intersection of both lists of all names
-        common_names.update(list_intersection(obj_names1, obj_names2))
-
         # build dict with determined data and add it to full list
         curr_photo_comparison = {
             "Photo": data1[i]["Photo"],
-            "common_names": sorted(list(common_names)),
-            "unique_names1": sorted(list(unique_names1)),
-            "unique_names2": sorted(list(unique_names2)),
             "common_locations": common_locations,
-            "unique_locations1": list(unique_locations1),
-            "unique_locations2": list(unique_locations2)
+            "photo_object_count1": photo_object_count1,
+            "photo_object_count2": photo_object_count2
         }
         all_photos_comparison.append(curr_photo_comparison)
 
