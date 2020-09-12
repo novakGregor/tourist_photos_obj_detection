@@ -93,6 +93,14 @@ def reformat_openimages_annotations(annotations_path, basedir, categories, save_
         image = Image.open(img)
         img_width, img_height = image.size
         image.close()
+        # convert relative values of bounding box to absolute
+        for obj in annotations_dict[img]:
+            obj["Bounding box"]["width"] *= img_width
+            obj["Bounding box"]["height"] *= img_height
+            obj["Bounding box"]["min x"] *= img_width
+            obj["Bounding box"]["max x"] *= img_width
+            obj["Bounding box"]["min y"] *= img_height
+            obj["Bounding box"]["max y"] *= img_height
         img_dict = {
             "Photo": image_path,
             "Width": img_width,
