@@ -102,9 +102,9 @@ def compare_two_models(model_names, model_json_paths, iou_thresh=0.7):
         # objects that were detected by both models at the same location regardless of names
         common_locations = []
         # objects, detected by first model on current photo
-        objects1 = data1[i]["Objects"]
+        objects1 = sorted(data1[i]["Objects"], key=lambda x: -x["Score"])
         # objects, detected by second model on current photo
-        objects2 = data2[i]["Objects"]
+        objects2 = sorted(data2[i]["Objects"], key=lambda x: -x["Score"])
         # names of all detected objects by first model on current photo
         obj_names1 = [obj["Class name"] for obj in objects1]
         # names of all detected objects by second model on current photo
@@ -116,23 +116,34 @@ def compare_two_models(model_names, model_json_paths, iou_thresh=0.7):
             photo_object_count1[name] += 1
         for name in obj_names2:
             object_count2[name] += 1
-            photo_object_count1[name] += 1
+            photo_object_count2[name] += 1
 
         # for each photo, update sets of all appeared names
         all_names1.update(obj_names1)
         all_names2.update(obj_names2)
 
+        used_objects1 = []
+        used_objects2 = []
+
         # for each object, detected by first model
         for obj1 in objects1:
             name1 = obj1["Class name"]
             b_box1 = obj1["Bounding box"]
+            obj1_indicator = (name1, b_box1)
+            if obj1_indicator in used_objects1:
+                continue
             # for each object, detected by second model
             for obj2 in objects2:
                 name2 = obj2["Class name"]
                 b_box2 = obj2["Bounding box"]
+                obj2_indicator = (name2, b_box2)
+                if obj2_indicator in used_objects2:
+                    continue
                 if get_iou(b_box1, b_box2) >= iou_thresh:
                     # IOU is big enough -> objects share their location
                     common_locations.append((name1, name2))
+                    used_objects1.append(obj1_indicator)
+                    used_objects2.append(obj2_indicator)
 
         # build dict with determined data and add it to full list
         curr_photo_comparison = {
