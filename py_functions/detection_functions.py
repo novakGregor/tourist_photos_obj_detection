@@ -92,6 +92,9 @@ def run_detection(model, model_name, category_index, photos_path, results_path, 
             # reshape grayscale image into 3 channels (tensorflow model expects RGB image)
             if len(photo_np.shape) < 3:
                 photo_np = np.stack((photo_np,) * 3, axis=-1)
+            # remove non-rgb channels if image has them
+            elif photo_np.shape[2] > 3:
+                photo_np = photo_np[..., :3]
 
             # dimensions
             photo_x, photo_y = photo_np.shape[1], photo_np.shape[0]
