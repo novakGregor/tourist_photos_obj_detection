@@ -483,6 +483,28 @@ def location_pair_tuples(pairs, obj_counts, jaccard_primary, count_thresh, jacca
     return tuples
 
 
+# saves comparison into TSV file, using same data as when saving table image
+def save_tsv_table(pairs, save_path, obj_counts, jaccard_primary=False, count_thresh=0, jaccard_thresh=0):
+    tuples = location_pair_tuples(pairs, obj_counts, jaccard_primary, count_thresh, jaccard_thresh)
+    names1 = [pair_tuple[0] for pair_tuple in tuples]
+    names2 = [pair_tuple[-1] for pair_tuple in tuples]
+    # can't use .values() because there can be less pairs in tuples because of thresholds
+    obj_counts1 = [obj_counts[0][name] for name in names1]
+    obj_counts2 = [obj_counts[1][name] for name in names2]
+    if jaccard_primary:
+        jaccard_indices = [pair_tuple[1] for pair_tuple in tuples]
+        matches = [pair_tuple[2] for pair_tuple in tuples]
+    else:
+        matches = [pair_tuple[1] for pair_tuple in tuples]
+        jaccard_indices = [pair_tuple[2] for pair_tuple in tuples]
+    header = ["index", "m1_object_count", "m1_name", "num_matches", "jaccard_index", "m2_name", "m2_object_count"]
+    with open(save_path, "w+") as f:
+        f.write("\t".join(header) + "\n")
+        for i in range(len(names1)):
+            row = [i, obj_counts1[i], names1[i], matches[i], jaccard_indices[i], names2[i], obj_counts2[i]]
+            f.write("\t".join(map(str, row)) + "\n")
+
+
 def plot_pair_table(pairs, save_path, models, obj_counts, jaccard_primary=False, count_thresh=0, jaccard_thresh=0):
     tuples = location_pair_tuples(pairs, obj_counts, jaccard_primary, count_thresh, jaccard_thresh)
 

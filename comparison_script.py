@@ -84,8 +84,10 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             # filename for saved files
             if model1 == model2:
                 save_file = "{}.png".format(model1)
+                tsv_file = "{}.tab".format(model1)
             else:
                 save_file = "{} with {}.png".format(model1, model2)
+                tsv_file = "{} with {}.tab".format(model1, model2)
             # path for heat map file location
             heat_map_path = os.path.join(dir_heatmaps, save_file)
             # paths for all graph files
@@ -94,10 +96,10 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             graph_path_jaccard = os.path.join(dir_graphs_jaccard, save_file)
             graph_path_jaccard_thresh = os.path.join(dir_graphs_jaccard_thresh, save_file)
             # paths for all table files
-            counts_table_file = os.path.join(counts_tables, save_file)
-            counts_table_file_thresh = os.path.join(counts_tables_thresh, save_file)
-            jaccard_table_file = os.path.join(jaccard_tables, save_file)
-            jaccard_table_file_thresh = os.path.join(jaccard_tables_thresh, save_file)
+            counts_table_file = os.path.join(counts_tables, tsv_file)
+            counts_table_file_thresh = os.path.join(counts_tables_thresh, tsv_file)
+            jaccard_table_file = os.path.join(jaccard_tables, tsv_file)
+            jaccard_table_file_thresh = os.path.join(jaccard_tables_thresh, tsv_file)
 
             # comparison execution
             comparison_data = cf.compare_two_models(model_names, json_paths, iou_thresh)
@@ -134,9 +136,9 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             # without thresholds
             # ----------------
             # tables
-            cf.plot_pair_table(pairs, counts_table_file, models_tuple, object_counts)
-            cf.plot_pair_table(pairs, jaccard_table_file, models_tuple, object_counts,
-                               jaccard_primary=True)
+            cf.save_tsv_table(pairs, counts_table_file, object_counts)
+            cf.save_tsv_table(pairs, jaccard_table_file, object_counts,
+                              jaccard_primary=True)
             # node graphs
             cf.nodes_graph_pgv(pairs, color1, color2, graph_path)
             cf.nodes_graph_pgv(pairs, color1, color2, graph_path_jaccard,
@@ -151,7 +153,7 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
 
             # width = object counts
             try:
-                cf.plot_pair_table(pairs, counts_table_file_thresh, models_tuple, object_counts, count_thresh=3)
+                cf.save_tsv_table(pairs, counts_table_file_thresh, object_counts, count_thresh=3)
                 cf.nodes_graph_pgv(pairs, color1, color2, graph_path_thresh,
                                    weight_thresh=3)
             except ValueError:
@@ -162,8 +164,8 @@ def generate_heatmaps_and_node_graphs(models_dict, results_dir,  color1, color2,
             try:
                 cf.nodes_graph_pgv(pairs, color1, color2, graph_path_jaccard_thresh,
                                    use_jaccard=True, jaccard_thresh=0.01, object_counts=object_counts)
-                cf.plot_pair_table(pairs, jaccard_table_file_thresh, models_tuple, object_counts,
-                                   jaccard_primary=True, jaccard_thresh=0.01)
+                cf.save_tsv_table(pairs, jaccard_table_file_thresh, object_counts,
+                                  jaccard_primary=True, jaccard_thresh=0.01)
             except ValueError:
                 print("SAVING TABLE FAILED: Table with Jaccard index threshold empty")
                 no_match_jaccard_thresh = "{} -> {}, Jaccard index threshold=0.1\n".format(model1, model2)
@@ -187,7 +189,7 @@ models = {
     "yolo3": "YOLOv3"
 }
 
-res_dir = "Results/2020-08-17 Piran_en"
+res_dir = "Results/2020-08-21 Booking.com_photos"
 node_color1 = "yellow"
 node_color2 = "red"
 iou_threshold = 0.5
