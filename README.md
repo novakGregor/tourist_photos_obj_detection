@@ -1,7 +1,7 @@
-# diploma-thesis
+# tourist_photos_obj_detection
 Repozitorij za diplomsko delo na visokošolskem strokovnem študiju Računalništvo in informatika
 
-Naslov: Uporaba globokega učenja za prepoznavanje objektov na fotografijah turističnih ponudnikov  
+Naslov: Uporaba globokega učenja za detekcijo objektov na fotografijah turističnih nastanitev  
 Avtor: Gregor Novak  
 Mentor: doc. dr. Tomaž Curk  
 Univerza v Ljubljani  
