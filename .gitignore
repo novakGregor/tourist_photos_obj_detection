@@ -1,0 +1,11 @@
+.idea/
+__pycache__/
+Results/
+downloaded_models/
+Photos/
+
+# annotations files are quite big
+# can be downloaded from:
+# COCO: https://cocodataset.org/#download (2014 Train/Val annotations zip)
+# Open Images: https://storage.googleapis.com/openimages/web/download.html (Boxes -> Test)
+data/coco_annotations/
